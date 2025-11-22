@@ -1,0 +1,19 @@
+# Node.js dependencies
+node_modules/
+
+# SQLite database files
+*.db
+
+# Logs
+logs/
+*.log
+
+# Environment variables
+.env
+
+# OS/Editor files
+.DS_Store
+Thumbs.db
+
+# VS Code settings (optional)
+.vscode/
