@@ -7,7 +7,8 @@
 //   url:       The backend API endpoint to call
 //   resultId:  The ID of the element where results will be shown
 //   method:    HTTP method (default is 'GET')
-async function handleForm(formId, url, resultId, method = 'GET') {
+// Patch: allow custom URL builder for special cases (like /status/:flightId)
+async function handleForm(formId, url, resultId, method = 'GET', urlBuilder) {
   // Get the form element by its ID
   const form = document.getElementById(formId);
   // Add a submit event listener to the form
@@ -18,9 +19,15 @@ async function handleForm(formId, url, resultId, method = 'GET') {
     let res, json;
     try {
       if (method === 'GET') {
-        // For GET requests, encode data as query parameters
-        const params = new URLSearchParams(data).toString();
-        res = await fetch(`${url}?${params}`);
+        // For GET requests, allow custom URL builder (for /status/:flightId)
+        let fetchUrl;
+        if (urlBuilder) {
+          fetchUrl = urlBuilder(data);
+        } else {
+          const params = new URLSearchParams(data).toString();
+          fetchUrl = `${url}?${params}`;
+        }
+        res = await fetch(fetchUrl);
       } else {
         // For POST requests, send data as JSON in the request body
         res = await fetch(url, {
@@ -34,10 +41,59 @@ async function handleForm(formId, url, resultId, method = 'GET') {
       // If this is the search form, render flights as cards
       if (formId === 'searchForm' && Array.isArray(json)) {
         renderFlights(json, resultId);
+      } else if (formId === 'purchaseForm') {
+        renderPurchaseResult(json, resultId);
+      } else if (formId === 'cancelForm') {
+        renderCancelResult(json, resultId);
+      } else if (formId === 'statusForm') {
+        renderStatusResult(json, resultId);
       } else {
-        // Otherwise, just show the JSON result (for purchase, cancel, status)
         document.getElementById(resultId).textContent = JSON.stringify(json, null, 2);
       }
+    // Render a modern, friendly purchase confirmation
+    function renderPurchaseResult(json, resultId) {
+      const el = document.getElementById(resultId);
+      if (json.success && json.reservationId) {
+        el.innerHTML = `<div style="color:#1a7f37;font-weight:600;font-size:1.1em;">🎫 Your ticket has been booked!<br>Reservation ID: <span style='color:#003580;'>${json.reservationId}</span></div>`;
+      } else if (json.error) {
+        el.innerHTML = `<div style="color:#b91c1c;font-weight:600;">❌ ${json.error}</div>`;
+      } else {
+        el.textContent = JSON.stringify(json, null, 2);
+      }
+    }
+
+    // Render a modern, friendly cancel confirmation
+    function renderCancelResult(json, resultId) {
+      const el = document.getElementById(resultId);
+      if (json.success) {
+        el.innerHTML = `<div style="color:#1a7f37;font-weight:600;font-size:1.1em;">🗑️ Your reservation has been cancelled.</div>`;
+      } else if (json.error) {
+        el.innerHTML = `<div style="color:#b91c1c;font-weight:600;">❌ ${json.error}</div>`;
+      } else {
+        el.textContent = JSON.stringify(json, null, 2);
+      }
+    }
+
+    // Render a modern, friendly flight status card
+    function renderStatusResult(json, resultId) {
+      const el = document.getElementById(resultId);
+      if (json.id && json.origin) {
+        el.innerHTML = `
+          <div class="flight-card" style="max-width:340px;margin:auto;">
+            <div style="font-size:1.1em;"><strong>Flight Status</strong></div>
+            <div><strong>Flight ID:</strong> ${json.id}</div>
+            <div><strong>From:</strong> ${json.origin}</div>
+            <div><strong>To:</strong> ${json.destination}</div>
+            <div><strong>Date:</strong> ${json.date}</div>
+            <div><strong>Status:</strong> <span style="color:${json.status === 'On Time' ? '#1a7f37' : '#b91c1c'};font-weight:600;">${json.status}</span></div>
+          </div>
+        `;
+      } else if (json.error) {
+        el.innerHTML = `<div style="color:#b91c1c;font-weight:600;">❌ ${json.error}</div>`;
+      } else {
+        el.textContent = JSON.stringify(json, null, 2);
+      }
+    }
     } catch (err) {
       // If there was an error (e.g., network or server), show it
       document.getElementById(resultId).textContent = 'Error: ' + err.message;
@@ -75,4 +131,5 @@ function renderFlights(flights, resultId) {
 handleForm('searchForm', '/flights', 'searchResults', 'GET'); // Search flights
 handleForm('purchaseForm', '/purchase', 'purchaseResult', 'POST'); // Purchase ticket
 handleForm('cancelForm', '/cancel', 'cancelResult', 'POST'); // Cancel reservation
-handleForm('statusForm', '/status', 'statusResult', 'GET'); // Check flight status
+// For status, use /status/:flightId instead of /status?flightId=...
+handleForm('statusForm', '/status', 'statusResult', 'GET', data => `/status/${encodeURIComponent(data.flightId)}`); // Check flight status
