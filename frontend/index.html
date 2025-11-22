@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Airline Reservation System</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      background: #f6f8fa;
+      color: #222;
+    }
+    .navbar {
+      background: #003580;
+      color: #fff;
+      padding: 1.2em 2em;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .navbar h1 {
+      margin: 0;
+      font-size: 2em;
+      letter-spacing: 1px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 2em auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+      padding: 2em 2.5em 2.5em 2.5em;
+    }
+    .section {
+      margin-bottom: 2.5em;
+    }
+    .section-title {
+      color: #003580;
+      margin-bottom: 1em;
+      font-size: 1.3em;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5em;
+      align-items: flex-end;
+      background: #f1f5fb;
+      padding: 1.2em 1.5em;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+      margin-bottom: 1em;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      font-size: 1em;
+      flex: 1 1 180px;
+      min-width: 160px;
+    }
+    input, select {
+      margin-top: 0.5em;
+      padding: 0.6em 0.8em;
+      border: 1px solid #bfc9d9;
+      border-radius: 5px;
+      font-size: 1em;
+      background: #fff;
+      transition: border 0.2s;
+    }
+    input:focus, select:focus {
+      border: 1.5px solid #003580;
+      outline: none;
+    }
+    button {
+      background: #ffb700;
+      color: #003580;
+      border: none;
+      border-radius: 5px;
+      padding: 0.7em 1.5em;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 0.5em;
+    }
+    button:hover {
+      background: #ffd700;
+    }
+    .result {
+      margin-top: 0.5em;
+      padding: 1em;
+      border-radius: 8px;
+      background: #f9fafc;
+      border: 1px solid #e3e8f0;
+      font-size: 1em;
+      min-height: 2em;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .card-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5em;
+      margin-top: 1em;
+    }
+    .flight-card {
+      background: #f1f5fb;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      padding: 1.2em 1.5em;
+      min-width: 220px;
+      flex: 1 1 220px;
+      border: 1px solid #e3e8f0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5em;
+    }
+    .flight-card strong {
+      color: #003580;
+    }
+    @media (max-width: 600px) {
+      .container { padding: 1em; }
+      form { flex-direction: column; gap: 0.7em; }
+      .card-list { flex-direction: column; gap: 1em; }
+    }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <h1>✈️ AirBooker</h1>
+  </div>
+  <div class="container">
+    <div class="section">
+      <div class="section-title">Search Flights</div>
+      <form id="searchForm">
+        <label>From
+          <input type="text" name="from" placeholder="e.g. New York" required>
+        </label>
+        <label>To
+          <input type="text" name="to" placeholder="e.g. London" required>
+        </label>
+        <label>Date
+          <input type="date" name="date" required>
+        </label>
+        <button type="submit">Search</button>
+      </form>
+      <div id="searchResults" class="result"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Purchase Ticket</div>
+      <form id="purchaseForm">
+        <label>Flight ID
+          <input type="number" name="flightId" placeholder="Enter Flight ID" required min="1" oninput="this.value=this.value.replace(/[^0-9]/g,'');">
+        </label>
+        <label>Name
+          <input type="text" name="customerName" placeholder="Your Name" required>
+        </label>
+        <label>Email
+          <input type="email" name="customerEmail" placeholder="you@email.com" required>
+        </label>
+        <label>Credit Card
+          <input type="text" name="creditCard" placeholder="Card Number" required>
+        </label>
+        <label>Agent ID (optional)
+          <input type="number" name="agentId" placeholder="Agent ID" min="1" oninput="this.value=this.value.replace(/[^0-9]/g,'');">
+        </label>
+        <button type="submit">Purchase</button>
+      </form>
+      <div id="purchaseResult" class="result"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Cancel Reservation</div>
+      <form id="cancelForm">
+        <label>Reservation ID
+          <input type="number" name="reservationId" placeholder="Enter Reservation ID" required min="1" oninput="this.value=this.value.replace(/[^0-9]/g,'');">
+        </label>
+        <button type="submit">Cancel</button>
+      </form>
+      <div id="cancelResult" class="result"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Check Flight Status</div>
+      <form id="statusForm">
+        <label>Flight ID
+          <input type="number" name="flightId" placeholder="Enter Flight ID" required min="1" oninput="this.value=this.value.replace(/[^0-9]/g,'');">
+        </label>
+        <button type="submit">Check Status</button>
+      </form>
+      <div id="statusResult" class="result"></div>
+    </div>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>
