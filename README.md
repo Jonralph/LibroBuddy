@@ -36,8 +36,25 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 Then restart your terminal and continue with the steps below.
 
-## Demo Data
-- Flights and agents are preloaded in the database.
+
+## Demo Data (for Testing)
+
+The following data is preloaded in the database for testing:
+
+### Flights
+| ID | Origin    | Destination | Date        | Status   |
+|----|-----------|-------------|-------------|----------|
+| 1  | New York  | London      | 2025-12-01  | On Time  |
+| 2  | London    | Paris       | 2025-12-02  | Delayed  |
+| 3  | Paris     | Rome        | 2025-12-03  | On Time  |
+
+### Agents
+| ID | Name          |
+|----|---------------|
+| 1  | Agent Smith   |
+| 2  | Agent Johnson |
+
+No customers or reservations are preloaded. You can create them by using the forms in the app.
 
 ---
 
