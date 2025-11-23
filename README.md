@@ -1,5 +1,3 @@
-npm install
-
 # Getaway Airline Reservation System
 
 This project is a demo online airline reservation system built with Node.js (Express), SQLite, and a modern HTML/CSS/JS frontend. It is designed for easy setup, learning, and demonstration.
