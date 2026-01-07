@@ -1,51 +1,124 @@
--- SQL schema for airline reservation system
-DROP TABLE IF EXISTS flights;
-DROP TABLE IF EXISTS reservations;
-DROP TABLE IF EXISTS customers;
-DROP TABLE IF EXISTS agents;
-DROP TABLE IF EXISTS sales;
+-- ============================================
+-- SQL SCHEMA FOR LIBROBUDDY DATABASE
+-- ============================================
+-- This file contains the complete database schema
+-- for reference purposes. The actual database is
+-- created using init.js which runs these same queries.
+-- ============================================
 
-CREATE TABLE flights (
+-- Enable foreign key support (SQLite specific)
+PRAGMA foreign_keys = ON;
+
+-- ============================================
+-- USERS TABLE
+-- ============================================
+-- Stores user account information and authentication data
+CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  origin TEXT NOT NULL,
-  destination TEXT NOT NULL,
-  date TEXT NOT NULL,
-  status TEXT NOT NULL
+  username TEXT UNIQUE NOT NULL,           -- Unique username for login
+  email TEXT UNIQUE NOT NULL,              -- User's email address
+  password_hash TEXT NOT NULL,             -- Bcrypt hashed password
+  role TEXT DEFAULT 'customer'             -- Role: customer, admin, or manager
+    CHECK(role IN ('customer', 'admin', 'manager')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE reservations (
+-- ============================================
+-- CATEGORIES TABLE
+-- ============================================
+-- Book categories for organization
+CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  flight_id INTEGER NOT NULL,
-  customer_name TEXT NOT NULL,
-  customer_email TEXT NOT NULL,
-  agent_id INTEGER,
-  FOREIGN KEY (flight_id) REFERENCES flights(id),
-  FOREIGN KEY (agent_id) REFERENCES agents(id)
+  name TEXT UNIQUE NOT NULL,               -- Category name (e.g., "Fiction")
+  description TEXT                         -- Optional description
 );
 
-CREATE TABLE customers (
+-- ============================================
+-- BOOKS TABLE
+-- ============================================
+-- Main book inventory
+CREATE TABLE IF NOT EXISTS books (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE
+  title TEXT NOT NULL,                     -- Book title
+  author TEXT NOT NULL,                    -- Author name
+  isbn TEXT UNIQUE NOT NULL,               -- ISBN-13 for book identification
+  category_id INTEGER,                     -- Link to categories table
+  description TEXT,                        -- Book description/summary
+  price REAL NOT NULL CHECK(price >= 0),   -- Price in dollars
+  stock_quantity INTEGER DEFAULT 0         -- Number of books in stock
+    CHECK(stock_quantity >= 0),
+  publisher TEXT,                          -- Publishing company
+  publication_year INTEGER,                -- Year published
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 
-CREATE TABLE agents (
+-- ============================================
+-- ORDERS TABLE
+-- ============================================
+-- Customer orders tracking
+CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL
+  user_id INTEGER NOT NULL,                -- Customer who placed order
+  total_amount REAL NOT NULL               -- Total order cost
+    CHECK(total_amount >= 0),
+  status TEXT DEFAULT 'pending'            -- Order status
+    CHECK(status IN ('pending', 'processing', 'shipped', 'delivered', 'cancelled')),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-CREATE TABLE sales (
+-- ============================================
+-- ORDER_ITEMS TABLE
+-- ============================================
+-- Individual items within each order
+CREATE TABLE IF NOT EXISTS order_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  agent_id INTEGER NOT NULL,
-  reservation_id INTEGER NOT NULL,
-  FOREIGN KEY (agent_id) REFERENCES agents(id),
-  FOREIGN KEY (reservation_id) REFERENCES reservations(id)
+  order_id INTEGER NOT NULL,               -- Which order this belongs to
+  book_id INTEGER NOT NULL,                -- Which book was purchased
+  quantity INTEGER NOT NULL                -- How many copies
+    CHECK(quantity > 0),
+  price_at_purchase REAL NOT NULL          -- Price when purchased
+    CHECK(price_at_purchase >= 0),
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (book_id) REFERENCES books(id)
 );
 
--- Dummy data
-INSERT INTO flights (origin, destination, date, status) VALUES
-('New York', 'London', '2025-12-01', 'On Time'),
-('London', 'Paris', '2025-12-02', 'Delayed'),
-('Paris', 'Rome', '2025-12-03', 'On Time');
+-- ============================================
+-- REVIEWS TABLE
+-- ============================================
+-- Customer reviews and ratings
+CREATE TABLE IF NOT EXISTS reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  book_id INTEGER NOT NULL,                -- Book being reviewed
+  user_id INTEGER NOT NULL,                -- User who wrote review
+  rating INTEGER NOT NULL                  -- Star rating 1-5
+    CHECK(rating >= 1 AND rating <= 5),
+  review_text TEXT,                        -- Optional review content
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  UNIQUE(book_id, user_id)                 -- One review per user per book
+);
 
-INSERT INTO agents (name) VALUES ('Agent Smith'), ('Agent Johnson');
+-- ============================================
+-- INDEXES FOR PERFORMANCE
+-- ============================================
+-- These indexes speed up common queries
+
+-- Index for searching books by title or author
+CREATE INDEX IF NOT EXISTS idx_books_title ON books(title);
+CREATE INDEX IF NOT EXISTS idx_books_author ON books(author);
+
+-- Index for finding books by category
+CREATE INDEX IF NOT EXISTS idx_books_category ON books(category_id);
+
+-- Index for finding user's orders
+CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
+
+-- Index for finding order items
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+
+-- Index for finding book reviews
+CREATE INDEX IF NOT EXISTS idx_reviews_book ON reviews(book_id);
