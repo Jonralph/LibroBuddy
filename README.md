@@ -136,6 +136,23 @@ npm run dev
 
 The server will start on `http://localhost:3000`
 
+#### Troubleshooting: sqlite3 Installation Issues
+
+If you see an error like:
+
+```
+Error: ...node_sqlite3.node is not a valid Win32 application.
+```
+
+This means the sqlite3 binary is incompatible or corrupted. To fix:
+
+```bash
+npm uninstall sqlite3
+npm install sqlite3
+```
+
+This will reinstall sqlite3 with the correct binary for your system.
+
 ### Step 5: Access the Application
 
 Open your browser and navigate to:
