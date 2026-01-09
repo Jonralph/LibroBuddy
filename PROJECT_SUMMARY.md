@@ -2,7 +2,7 @@
 
 ## ✅ Project Completed Successfully!
 
-I've completely replaced your previous project with **LibroBuddy**, a full-featured online library/bookstore management system based on the requirements from your document.
+
 
 ---
 
@@ -72,7 +72,7 @@ Project-demo/
 └── QUICKSTART.md             # Quick start guide
 ```
 
-**Total Lines of Code: ~4,615 lines** (including extensive comments!)
+**Total Lines of Code: ~4,615 lines** 
 
 ---
 

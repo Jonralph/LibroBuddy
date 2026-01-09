@@ -98,4 +98,3 @@ The system comes pre-loaded with 10 sample books:
 
 ---
 
-**Enjoy using LibroBuddy! 📚**
