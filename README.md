@@ -10,16 +10,21 @@ LibroBuddy is a comprehensive online library/bookstore management system designe
 - Secure user registration and login
 - Password hashing with bcrypt (10 salt rounds)
 - JWT-based authentication with 24-hour token expiration
-- Role-based access control (Customer, Admin, Manager)
+- Role-based access control (Customer, Cashier, Admin, Manager)
 - Protected API endpoints
+- **NEW:** Email encryption at rest (AES-256-CBC)
+- **NEW:** Comprehensive audit logging for security compliance
 
 ### Book Management
 - Complete CRUD operations for books
 - Category-based organization
-- Search functionality (by title or author)
+- Search functionality (by title, author, or ISBN)
+- Filter by category
 - Stock quantity tracking
+- Book cover images from Open Library API
 - Detailed book information (ISBN, publisher, publication year, description)
-- Low stock alerts for administrators
+- **NEW:** Reorder threshold tracking
+- **NEW:** Low stock alerts for administrators
 
 ### Shopping Cart & Orders
 - Add/remove items from cart
@@ -29,6 +34,7 @@ LibroBuddy is a comprehensive online library/bookstore management system designe
 - Stock validation during checkout
 - Order history tracking
 - Order status management (pending, processing, shipped, delivered, cancelled)
+- **NEW:** Employee tracking for orders processed by cashiers
 
 ### Review System
 - Customer reviews with 1-5 star ratings
@@ -42,7 +48,24 @@ LibroBuddy is a comprehensive online library/bookstore management system designe
 - View all orders
 - Update order status
 - System statistics dashboard
+- **NEW:** Sales reporting with date range filtering
+- **NEW:** CSV export for sales reports
+- **NEW:** Supplier order management
+- **NEW:** Reorder threshold monitoring
+- **NEW:** Audit log viewer with filtering
 - Low stock monitoring
+
+### Cashier Features
+- View all customer orders
+- Update order status
+- View today's sales summary
+- Employee ID tracking for accountability
+
+### Advanced Features
+- **Payment Gateway (Mock):** Simulated payment processing with confirmation emails
+- **Supplier Ordering:** Automated inventory management with reorder thresholds
+- **Audit Logging:** Track all critical actions (logins, orders, inventory changes)
+- **Data Encryption:** Sensitive data encrypted at rest
 
 ## Technology Stack
 
@@ -51,6 +74,7 @@ LibroBuddy is a comprehensive online library/bookstore management system designe
 - **Framework:** Express.js 4.x
 - **Database:** SQLite3
 - **Authentication:** bcrypt + JSON Web Tokens (JWT)
+- **Encryption:** crypto (AES-256-CBC for sensitive data)
 - **Environment:** dotenv for configuration
 
 ### Frontend
@@ -116,11 +140,12 @@ npm run init-db
 ```
 
 This creates the SQLite database with:
-- All necessary tables
+- All necessary tables (users, books, categories, orders, order_items, reviews, suppliers, supplier_orders, audit_log)
 - Sample categories
-- Sample books
+- Sample books with cover images
 - Admin user (username: `admin`, password: `admin123`)
 - Sample customer (username: `johndoe`, password: `customer123`)
+- Cashier user (username: `cashier`, password: `cashier123`, employee_id: `EMP001`)
 
 ### Step 4: Start the Server
 
@@ -165,7 +190,13 @@ http://localhost:3000
 ### Admin Account
 - **Username:** admin
 - **Password:** admin123
-- **Capabilities:** Full system access, book management, order management, statistics
+- **Capabilities:** Full system access, book management, order management, sales reports, supplier ordering, audit logs, statistics
+
+### Cashier Account
+- **Username:** cashier
+- **Password:** cashier123
+- **Employee ID:** EMP001
+- **Capabilities:** View all orders, update order status, view today's sales
 
 ### Sample Customer Account
 - **Username:** johndoe

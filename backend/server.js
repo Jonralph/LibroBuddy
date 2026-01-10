@@ -25,6 +25,7 @@ const bcrypt = require('bcrypt');          // Password hashing library
 const jwt = require('jsonwebtoken');       // JSON Web Token for authentication
 const cors = require('cors');              // Enable Cross-Origin Resource Sharing
 const path = require('path');              // File path utilities
+const crypto = require('crypto');          // Cryptographic functions for encryption
 
 // ============================================
 // SERVER CONFIGURATION
@@ -32,6 +33,10 @@ const path = require('path');              // File path utilities
 const app = express();
 const PORT = process.env.PORT || 3000;     // Server port (default 3000)
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key'; // Secret for JWT signing
+
+// Encryption configuration
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32); // 32 bytes for AES-256
+const ENCRYPTION_IV_LENGTH = 16; // AES block size
 
 // Database connection
 const dbPath = process.env.DB_PATH || path.join(__dirname, '../database/librobuddy.db');
@@ -104,6 +109,19 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+/**
+ * Middleware to check if user has any of the allowed roles
+ * Must be used after authenticateToken middleware
+ */
+function checkRole(allowedRoles) {
+  return (req, res, next) => {
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+    next();
+  };
+}
+
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
@@ -123,6 +141,35 @@ function sanitizeInput(input) {
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
+}
+
+/**
+ * Encrypt sensitive data (AES-256-CBC)
+ */
+function encryptData(text) {
+  const iv = crypto.randomBytes(ENCRYPTION_IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + ':' + encrypted;
+}
+
+/**
+ * Decrypt sensitive data
+ */
+function decryptData(encryptedText) {
+  try {
+    const parts = encryptedText.split(':');
+    const iv = Buffer.from(parts.shift(), 'hex');
+    const encrypted = parts.join(':');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (error) {
+    console.error('Decryption error:', error.message);
+    return encryptedText; // Return original if decryption fails (backward compatibility)
+  }
 }
 
 // ============================================
@@ -162,9 +209,12 @@ app.post('/api/auth/register', async (req, res) => {
     // Hash password (10 salt rounds)
     const passwordHash = await bcrypt.hash(password, 10);
 
+    // Encrypt email for data protection
+    const encryptedEmail = encryptData(cleanEmail);
+
     // Insert user into database
     const sql = 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)';
-    db.run(sql, [cleanUsername, cleanEmail, passwordHash], function(err) {
+    db.run(sql, [cleanUsername, encryptedEmail, passwordHash], function(err) {
       if (err) {
         // Check for unique constraint violation
         if (err.message.includes('UNIQUE')) {
@@ -214,6 +264,7 @@ app.post('/api/auth/login', (req, res) => {
       // User not found or password incorrect
       // Use generic message to prevent user enumeration
       if (!user) {
+        logAudit(null, 'LOGIN_FAILED', { username, reason: 'User not found' }, req.ip);
         return res.status(401).json({ error: 'Invalid credentials.' });
       }
 
@@ -221,6 +272,7 @@ app.post('/api/auth/login', (req, res) => {
       const passwordMatch = await bcrypt.compare(password, user.password_hash);
       
       if (!passwordMatch) {
+        logAudit(user.id, 'LOGIN_FAILED', { username, reason: 'Invalid password' }, req.ip);
         return res.status(401).json({ error: 'Invalid credentials.' });
       }
 
@@ -234,6 +286,9 @@ app.post('/api/auth/login', (req, res) => {
         JWT_SECRET,
         { expiresIn: '24h' }
       );
+
+      // Log successful login
+      logAudit(user.id, 'LOGIN_SUCCESS', { username: user.username }, req.ip);
 
       // Return token and user info (without password hash)
       res.json({
@@ -438,6 +493,9 @@ app.put('/api/books/:id', authenticateToken, requireAdmin, (req, res) => {
       return res.status(404).json({ error: 'Book not found.' });
     }
 
+    // Log book update
+    logAudit(req.user.userId, 'BOOK_UPDATED', { book_id: bookId, title, stock_quantity }, req.ip);
+
     res.json({ message: 'Book updated successfully.' });
   });
 });
@@ -458,6 +516,9 @@ app.delete('/api/books/:id', authenticateToken, requireAdmin, (req, res) => {
     if (this.changes === 0) {
       return res.status(404).json({ error: 'Book not found.' });
     }
+
+    // Log book deletion
+    logAudit(req.user.userId, 'BOOK_DELETED', { book_id: bookId }, req.ip);
 
     res.json({ message: 'Book deleted successfully.' });
   });
@@ -679,8 +740,11 @@ app.post('/api/orders', authenticateToken, (req, res) => {
 
     // Create order after all items validated
     function createOrder() {
-      db.run('INSERT INTO orders (user_id, total_amount, status) VALUES (?, ?, ?)',
-        [req.user.userId, totalAmount, 'pending'],
+      // If user is a cashier, track employee_id
+      const employee_id = (req.user.role === 'cashier' || req.user.role === 'admin') ? req.user.userId : null;
+      
+      db.run('INSERT INTO orders (user_id, employee_id, total_amount, status) VALUES (?, ?, ?, ?)',
+        [req.user.userId, employee_id, totalAmount, 'pending'],
         function(err) {
           if (err) {
             db.run('ROLLBACK');
@@ -710,6 +774,9 @@ app.post('/api/orders', authenticateToken, (req, res) => {
                       return res.status(500).json({ error: 'Failed to complete order.' });
                     }
 
+                    // Log order creation
+                    logAudit(req.user.userId, 'ORDER_CREATED', { order_id: orderId, total_amount: totalAmount, items: processedItems.length }, req.ip);
+
                     res.status(201).json({
                       message: 'Order created successfully.',
                       orderId: orderId,
@@ -728,11 +795,11 @@ app.post('/api/orders', authenticateToken, (req, res) => {
 
 /**
  * PUT /api/orders/:id/status
- * Update order status (Admin only)
+ * Update order status (Admin/Cashier only)
  * 
  * Body: { status: 'processing' | 'shipped' | 'delivered' | 'cancelled' }
  */
-app.put('/api/orders/:id/status', authenticateToken, requireAdmin, (req, res) => {
+app.put('/api/orders/:id/status', authenticateToken, checkRole(['admin', 'cashier']), (req, res) => {
   const orderId = req.params.id;
   const { status } = req.body;
 
@@ -831,7 +898,178 @@ app.delete('/api/reviews/:id', authenticateToken, (req, res) => {
 });
 
 // ============================================
+// SUPPLIER ORDERING ROUTES (Admin only)
+// ============================================
+
+/**
+ * GET /api/suppliers
+ * Get all suppliers
+ */
+app.get('/api/suppliers', authenticateToken, requireAdmin, (req, res) => {
+  db.all('SELECT * FROM suppliers ORDER BY name', (err, suppliers) => {
+    if (err) {
+      console.error('Error fetching suppliers:', err.message);
+      return res.status(500).json({ error: 'Failed to fetch suppliers.' });
+    }
+    res.json(suppliers);
+  });
+});
+
+/**
+ * GET /api/supplier-orders
+ * Get all supplier orders
+ */
+app.get('/api/supplier-orders', authenticateToken, requireAdmin, (req, res) => {
+  const sql = `
+    SELECT supplier_orders.*, books.title, books.author, suppliers.name as supplier_name
+    FROM supplier_orders
+    JOIN books ON supplier_orders.book_id = books.id
+    JOIN suppliers ON supplier_orders.supplier_id = suppliers.id
+    ORDER BY supplier_orders.created_at DESC
+  `;
+  db.all(sql, (err, orders) => {
+    if (err) {
+      console.error('Error fetching supplier orders:', err.message);
+      return res.status(500).json({ error: 'Failed to fetch supplier orders.' });
+    }
+    res.json(orders);
+  });
+});
+
+/**
+ * POST /api/supplier-orders
+ * Create a new supplier order
+ */
+app.post('/api/supplier-orders', authenticateToken, requireAdmin, (req, res) => {
+  const { book_id, supplier_id, quantity, expected_delivery } = req.body;
+  
+  if (!book_id || !supplier_id || !quantity) {
+    return res.status(400).json({ error: 'Book, supplier, and quantity are required.' });
+  }
+
+  const sql = 'INSERT INTO supplier_orders (book_id, supplier_id, quantity, expected_delivery) VALUES (?, ?, ?, ?)';
+  db.run(sql, [book_id, supplier_id, quantity, expected_delivery], function(err) {
+    if (err) {
+      console.error('Error creating supplier order:', err.message);
+      return res.status(500).json({ error: 'Failed to create supplier order.' });
+    }
+    res.status(201).json({ message: 'Supplier order created successfully.', orderId: this.lastID });
+  });
+});
+
+/**
+ * PUT /api/supplier-orders/:id/status
+ * Update supplier order status (and update stock when received)
+ */
+app.put('/api/supplier-orders/:id/status', authenticateToken, requireAdmin, (req, res) => {
+  const orderId = req.params.id;
+  const { status } = req.body;
+
+  if (!['Pending', 'Shipped', 'Received', 'Cancelled'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status.' });
+  }
+
+  // Get order details first
+  db.get('SELECT * FROM supplier_orders WHERE id = ?', [orderId], (err, order) => {
+    if (err || !order) {
+      return res.status(404).json({ error: 'Supplier order not found.' });
+    }
+
+    // Update order status
+    db.run('UPDATE supplier_orders SET status = ? WHERE id = ?', [status, orderId], function(err) {
+      if (err) {
+        console.error('Error updating supplier order:', err.message);
+        return res.status(500).json({ error: 'Failed to update supplier order.' });
+      }
+
+      // If status is 'Received', increase book stock
+      if (status === 'Received' && order.status !== 'Received') {
+        db.run('UPDATE books SET stock_quantity = stock_quantity + ? WHERE id = ?', [order.quantity, order.book_id], (err) => {
+          if (err) {
+            console.error('Error updating stock:', err.message);
+          }
+          // Log inventory update
+          logAudit(req.user.userId, 'INVENTORY_UPDATED', { 
+            book_id: order.book_id, 
+            quantity_added: order.quantity, 
+            supplier_order_id: orderId 
+          }, req.ip);
+        });
+      }
+
+      // Log supplier order status change
+      logAudit(req.user.userId, 'SUPPLIER_ORDER_UPDATED', { order_id: orderId, new_status: status }, req.ip);
+
+      res.json({ message: 'Supplier order updated successfully.' });
+    });
+  });
+});
+
+/**
+ * GET /api/books-below-threshold
+ * Get books below reorder threshold
+ */
+app.get('/api/books-below-threshold', authenticateToken, requireAdmin, (req, res) => {
+  const sql = `
+    SELECT * FROM books 
+    WHERE stock_quantity <= reorder_threshold 
+    ORDER BY stock_quantity ASC
+  `;
+  db.all(sql, (err, books) => {
+    if (err) {
+      console.error('Error fetching books below threshold:', err.message);
+      return res.status(500).json({ error: 'Failed to fetch books.' });
+    }
+    res.json(books);
+  });
+});
+
+// ============================================
 // STATISTICS ROUTES (Admin only)
+
+/**
+ * GET /api/sales-report
+ * Get sales report (optionally filtered by date range)
+ * Query params: start (YYYY-MM-DD), end (YYYY-MM-DD), format=csv (optional)
+ * Admin only
+ */
+app.get('/api/sales-report', authenticateToken, requireAdmin, (req, res) => {
+  let { start, end, format } = req.query;
+  let params = [];
+  let where = 'WHERE status != "cancelled"';
+  if (start) {
+    where += ' AND DATE(created_at) >= ?';
+    params.push(start);
+  }
+  if (end) {
+    where += ' AND DATE(created_at) <= ?';
+    params.push(end);
+  }
+  const sql = `
+    SELECT orders.id, orders.created_at, users.username, orders.total_amount, orders.status
+    FROM orders
+    JOIN users ON orders.user_id = users.id
+    ${where}
+    ORDER BY orders.created_at DESC
+  `;
+  db.all(sql, params, (err, rows) => {
+    if (err) {
+      console.error('Error fetching sales report:', err.message);
+      return res.status(500).json({ error: 'Failed to fetch sales report.' });
+    }
+    if (format === 'csv') {
+      // Export as CSV
+      let csv = 'Order ID,Date,Username,Total Amount,Status\n';
+      rows.forEach(r => {
+        csv += `${r.id},${r.created_at},${r.username},${r.total_amount},${r.status}\n`;
+      });
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="sales_report.csv"');
+      return res.send(csv);
+    }
+    res.json(rows);
+  });
+});
 // ============================================
 
 /**
@@ -883,6 +1121,146 @@ app.get('/', (req, res) => {
 // 404 handler for API routes
 app.use('/api/*', (req, res) => {
   res.status(404).json({ error: 'API endpoint not found.' });
+});
+
+// ============================================
+// PAYMENT GATEWAY & CONFIRMATION EMAIL (MOCK)
+// ============================================
+
+// Mock payment endpoint
+app.post('/api/process-payment', authenticateToken, async (req, res) => {
+  const { order_id, payment_method, card_number, card_expiry, card_cvv } = req.body;
+
+  // Basic validation
+  if (!order_id || !payment_method) {
+    return res.status(400).json({ error: 'Order ID and payment method are required' });
+  }
+
+  // Mock payment processing (in real app, integrate Stripe/PayPal)
+  if (payment_method === 'credit_card') {
+    if (!card_number || !card_expiry || !card_cvv) {
+      return res.status(400).json({ error: 'Credit card details are required' });
+    }
+    // Validate card number (mock - just check length)
+    if (card_number.length < 13 || card_number.length > 19) {
+      return res.status(400).json({ error: 'Invalid card number' });
+    }
+  }
+
+  // Mock successful payment
+  const payment_id = 'PAY-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+  const transaction_date = new Date().toISOString();
+
+  // Update order status to 'Confirmed'
+  const updateQuery = `UPDATE orders SET status = 'Confirmed' WHERE id = ?`;
+  db.run(updateQuery, [order_id], function(err) {
+    if (err) return res.status(500).json({ error: 'Failed to update order status' });
+
+    // Get order details for confirmation email
+    const orderQuery = `
+      SELECT o.id, o.total_amount as total_price, u.username, u.email,
+             GROUP_CONCAT(b.title || ' x ' || oi.quantity, ', ') as items
+      FROM orders o
+      JOIN users u ON o.user_id = u.id
+      JOIN order_items oi ON o.id = oi.order_id
+      JOIN books b ON oi.book_id = b.id
+      WHERE o.id = ?
+      GROUP BY o.id
+    `;
+    
+    db.get(orderQuery, [order_id], (err, order) => {
+      if (err || !order) {
+        return res.status(500).json({ error: 'Failed to fetch order details' });
+      }
+
+      // Mock sending confirmation email (log to console)
+      const confirmationEmail = {
+        to: order.email,
+        subject: 'Order Confirmation - LibroBuddy',
+        body: `
+          Dear ${order.username},
+          
+          Thank you for your order! Your payment has been processed successfully.
+          
+          Order ID: ${order.id}
+          Payment ID: ${payment_id}
+          Total: $${order.total_price.toFixed(2)}
+          Items: ${order.items}
+          
+          Your order will be processed shortly.
+          
+          Best regards,
+          LibroBuddy Team
+        `
+      };
+
+      console.log('\n========== CONFIRMATION EMAIL ==========');
+      console.log(`To: ${confirmationEmail.to}`);
+      console.log(`Subject: ${confirmationEmail.subject}`);
+      console.log(`Body: ${confirmationEmail.body}`);
+      console.log('=========================================\n');
+
+      // Return payment confirmation
+      res.json({
+        success: true,
+        payment_id,
+        transaction_date,
+        message: 'Payment processed successfully. Confirmation email sent.',
+        order
+      });
+    });
+  });
+});
+
+// ============================================
+// AUDIT LOG MODULE
+// ============================================
+
+// Log audit entry
+function logAudit(user_id, action, details, ip_address) {
+  const query = `INSERT INTO audit_log (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)`;
+  db.run(query, [user_id, action, JSON.stringify(details), ip_address], (err) => {
+    if (err) console.error('Audit log error:', err.message);
+  });
+}
+
+// Get audit logs (admin only)
+app.get('/api/audit-logs', authenticateToken, requireAdmin, (req, res) => {
+  const { start, end, user_id, action } = req.query;
+  let params = [];
+  let where = [];
+
+  if (start) {
+    where.push('DATE(created_at) >= ?');
+    params.push(start);
+  }
+  if (end) {
+    where.push('DATE(created_at) <= ?');
+    params.push(end);
+  }
+  if (user_id) {
+    where.push('user_id = ?');
+    params.push(user_id);
+  }
+  if (action) {
+    where.push('action LIKE ?');
+    params.push(`%${action}%`);
+  }
+
+  const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
+  const query = `
+    SELECT a.*, u.username 
+    FROM audit_log a
+    LEFT JOIN users u ON a.user_id = u.id
+    ${whereClause}
+    ORDER BY a.created_at DESC
+    LIMIT 500
+  `;
+
+  db.all(query, params, (err, logs) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(logs);
+  });
 });
 
 // Global error handler

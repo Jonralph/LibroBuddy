@@ -13,6 +13,52 @@
  */
 
 // ============================================
+// SALES REPORT (ADMIN)
+async function getSalesReport(event) {
+  event.preventDefault();
+  const start = document.getElementById('salesStart').value;
+  const end = document.getElementById('salesEnd').value;
+  let url = `${API_URL}/sales-report?`;
+  if (start) url += `start=${start}&`;
+  if (end) url += `end=${end}&`;
+  try {
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    const data = await response.json();
+    let html = '';
+    if (data.length === 0) {
+      html = '<p>No sales found for this period.</p>';
+    } else {
+      html = `<table class="sales-report-table">
+        <thead><tr><th>Order ID</th><th>Date</th><th>User</th><th>Total</th><th>Status</th></tr></thead>
+        <tbody>
+        ${data.map(r => `
+          <tr>
+            <td>${r.id}</td>
+            <td>${new Date(r.created_at).toLocaleString()}</td>
+            <td>${r.username}</td>
+            <td>$${r.total_amount.toFixed(2)}</td>
+            <td>${r.status}</td>
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>`;
+    }
+    document.getElementById('salesReportResults').innerHTML = html;
+  } catch (error) {
+    document.getElementById('salesReportResults').innerHTML = '<p class="error">Failed to load sales report.</p>';
+  }
+}
+
+function exportSalesReport() {
+  const start = document.getElementById('salesStart').value;
+  const end = document.getElementById('salesEnd').value;
+  let url = `${API_URL}/sales-report?format=csv`;
+  if (start) url += `&start=${start}`;
+  if (end) url += `&end=${end}`;
+  window.open(url, '_blank');
+}
 // GLOBAL VARIABLES AND CONFIGURATION
 // ============================================
 
@@ -101,9 +147,15 @@ function showMainContent() {
   if (currentUser && currentUser.role === 'admin') {
     document.getElementById('adminPanel').style.display = 'block';
     document.getElementById('customerPanel').style.display = 'none';
+    document.getElementById('cashierPanel').style.display = 'none';
+  } else if (currentUser && currentUser.role === 'cashier') {
+    document.getElementById('adminPanel').style.display = 'none';
+    document.getElementById('customerPanel').style.display = 'block';
+    document.getElementById('cashierPanel').style.display = 'block';
   } else {
     document.getElementById('adminPanel').style.display = 'none';
     document.getElementById('customerPanel').style.display = 'block';
+    document.getElementById('cashierPanel').style.display = 'none';
   }
 }
 
@@ -384,10 +436,15 @@ function displayBooks(books) {
     const stockClass = inStock ? 'in-stock' : 'out-of-stock';
     const stockText = inStock ? `${book.stock_quantity} in stock` : 'Out of stock';
 
+    // Use book.image_url if present, else fallback to placeholder
+    const bookImage = book.image_url
+      ? `<img src="${book.image_url}" alt="${book.title} cover" class="book-cover" loading="lazy" onerror="this.onerror=null;this.src='https://via.placeholder.com/120x180?text=No+Image'">`
+      : `<div class="book-placeholder">📖</div>`;
+
     html += `
       <div class="book-card">
         <div class="book-image">
-          <div class="book-placeholder">📖</div>
+          ${bookImage}
         </div>
         <div class="book-info">
           <h3 class="book-title">${book.title}</h3>
@@ -395,7 +452,6 @@ function displayBooks(books) {
           <p class="book-category">${book.category_name || 'Uncategorized'}</p>
           <p class="book-price">$${book.price.toFixed(2)}</p>
           <p class="book-stock ${stockClass}">${stockText}</p>
-          
           <div class="book-actions">
             <button onclick="viewBook(${book.id})" class="btn btn-info btn-sm">
               View Details
@@ -1150,6 +1206,298 @@ async function viewStats() {
   } catch (error) {
     console.error('Error loading statistics:', error);
     showNotification('Failed to load statistics', 'error');
+  }
+}
+
+// SUPPLIER ORDERING (ADMIN)
+async function viewBooksNeedingReorder() {
+  try {
+    const response = await fetch(`${API_URL}/books-below-threshold`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    const books = await response.json();
+    let html = '<h4>Books Below Reorder Threshold</h4>';
+    if (books.length === 0) {
+      html += '<p>No books need reordering.</p>';
+    } else {
+      html += `<table class="supplier-table">
+        <thead><tr><th>Title</th><th>Stock</th><th>Threshold</th><th>Action</th></tr></thead>
+        <tbody>
+        ${books.map(b => `
+          <tr>
+            <td>${b.title}</td>
+            <td class="low-stock">${b.stock_quantity}</td>
+            <td>${b.reorder_threshold}</td>
+            <td><button onclick="showCreateSupplierOrderForm(${b.id})" class="btn btn-sm btn-success">Order</button></td>
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>`;
+    }
+    document.getElementById('supplierOrderResults').innerHTML = html;
+  } catch (error) {
+    showNotification('Failed to load books below threshold', 'error');
+  }
+}
+
+async function viewSupplierOrders() {
+  try {
+    const response = await fetch(`${API_URL}/supplier-orders`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    const orders = await response.json();
+    let html = '<h4>All Supplier Orders</h4>';
+    if (orders.length === 0) {
+      html += '<p>No supplier orders found.</p>';
+    } else {
+      html += `<table class="supplier-table">
+        <thead><tr><th>ID</th><th>Book</th><th>Supplier</th><th>Quantity</th><th>Status</th><th>Expected Delivery</th><th>Action</th></tr></thead>
+        <tbody>
+        ${orders.map(o => `
+          <tr>
+            <td>${o.id}</td>
+            <td>${o.title}</td>
+            <td>${o.supplier_name}</td>
+            <td>${o.quantity}</td>
+            <td>${o.status}</td>
+            <td>${o.expected_delivery || 'N/A'}</td>
+            <td>
+              <select id="supplierOrderStatus${o.id}" onchange="updateSupplierOrderStatus(${o.id})">
+                <option value="Pending" ${o.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                <option value="Shipped" ${o.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
+                <option value="Received" ${o.status === 'Received' ? 'selected' : ''}>Received</option>
+                <option value="Cancelled" ${o.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+              </select>
+            </td>
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>`;
+    }
+    document.getElementById('supplierOrderResults').innerHTML = html;
+  } catch (error) {
+    showNotification('Failed to load supplier orders', 'error');
+  }
+}
+
+async function showCreateSupplierOrderForm(bookId = null) {
+  // Fetch suppliers and books for the form
+  const [suppliersResp, booksResp] = await Promise.all([
+    fetch(`${API_URL}/suppliers`, { headers: { 'Authorization': `Bearer ${authToken}` } }),
+    fetch(`${API_URL}/books`, { headers: { 'Authorization': `Bearer ${authToken}` } })
+  ]);
+  const suppliers = await suppliersResp.json();
+  const books = await booksResp.json();
+
+  let html = `
+    <h4>Create Supplier Order</h4>
+    <form id="createSupplierOrderForm" onsubmit="createSupplierOrder(event)">
+      <label>Book:</label>
+      <select id="supplierOrderBook" required>
+        ${books.map(b => `<option value="${b.id}" ${bookId == b.id ? 'selected' : ''}>${b.title}</option>`).join('')}
+      </select>
+      <label>Supplier:</label>
+      <select id="supplierOrderSupplier" required>
+        ${suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+      </select>
+      <label>Quantity:</label>
+      <input type="number" id="supplierOrderQuantity" min="1" required>
+      <label>Expected Delivery:</label>
+      <input type="date" id="supplierOrderDelivery">
+      <button type="submit" class="btn btn-primary">Create Order</button>
+      <button type="button" onclick="viewSupplierOrders()" class="btn btn-secondary">Cancel</button>
+    </form>
+  `;
+  document.getElementById('supplierOrderResults').innerHTML = html;
+}
+
+async function createSupplierOrder(event) {
+  event.preventDefault();
+  const book_id = document.getElementById('supplierOrderBook').value;
+  const supplier_id = document.getElementById('supplierOrderSupplier').value;
+  const quantity = document.getElementById('supplierOrderQuantity').value;
+  const expected_delivery = document.getElementById('supplierOrderDelivery').value;
+
+  try {
+    const response = await fetch(`${API_URL}/supplier-orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ book_id, supplier_id, quantity, expected_delivery })
+    });
+    const data = await response.json();
+    if (response.ok) {
+      showNotification('Supplier order created successfully!', 'success');
+      viewSupplierOrders();
+    } else {
+      showNotification(data.error || 'Failed to create supplier order', 'error');
+    }
+  } catch (error) {
+    showNotification('Network error', 'error');
+  }
+}
+
+async function updateSupplierOrderStatus(orderId) {
+  const status = document.getElementById(`supplierOrderStatus${orderId}`).value;
+  try {
+    const response = await fetch(`${API_URL}/supplier-orders/${orderId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ status })
+    });
+    const data = await response.json();
+    if (response.ok) {
+      showNotification('Supplier order updated!', 'success');
+      viewSupplierOrders();
+    } else {
+      showNotification(data.error || 'Failed to update', 'error');
+    }
+  } catch (error) {
+    showNotification('Network error', 'error');
+  }
+}
+
+// ============================================
+// AUDIT LOG FUNCTIONS (ADMIN)
+// ============================================
+async function viewAuditLogs(actionFilter = '') {
+  try {
+    let url = `${API_URL}/audit-logs`;
+    if (actionFilter) {
+      url += `?action=${actionFilter}`;
+    }
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    const logs = await response.json();
+    
+    let html = `<h4>Audit Logs${actionFilter ? ` (${actionFilter}*)` : ''}</h4>`;
+    if (logs.length === 0) {
+      html += '<p>No audit logs found.</p>';
+    } else {
+      html += `<table class="audit-table">
+        <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th><th>IP</th></tr></thead>
+        <tbody>
+        ${logs.map(log => `
+          <tr>
+            <td>${new Date(log.created_at).toLocaleString()}</td>
+            <td>${log.username || 'N/A'}</td>
+            <td>${log.action}</td>
+            <td>${log.details || ''}</td>
+            <td>${log.ip_address || 'N/A'}</td>
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>`;
+    }
+    document.getElementById('auditLogResults').innerHTML = html;
+  } catch (error) {
+    showNotification('Failed to load audit logs', 'error');
+  }
+}
+
+// ============================================
+// CASHIER FUNCTIONS
+// ============================================
+async function viewAllOrders() {
+  try {
+    const response = await fetch(`${API_URL}/orders/all`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    const orders = await response.json();
+    
+    let html = '<h3>All Orders</h3>';
+    if (orders.length === 0) {
+      html += '<p>No orders found.</p>';
+    } else {
+      html += `<table class="orders-table">
+        <thead><tr><th>Order ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+        <tbody>
+        ${orders.map(o => `
+          <tr>
+            <td>${o.id}</td>
+            <td>${o.username}</td>
+            <td>$${o.total_amount.toFixed(2)}</td>
+            <td>${o.status}</td>
+            <td>${new Date(o.created_at).toLocaleString()}</td>
+            <td>
+              <select onchange="updateOrderStatusCashier(${o.id}, this.value)">
+                <option value="">-- Update --</option>
+                <option value="processing">Processing</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </td>
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>`;
+    }
+    document.getElementById('booksGrid').innerHTML = html;
+  } catch (error) {
+    showNotification('Failed to load orders', 'error');
+  }
+}
+
+async function viewTodaysSales() {
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    const response = await fetch(`${API_URL}/sales-report?start=${today}&end=${today}`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    const data = await response.json();
+    
+    let html = `<h3>Today's Sales (${today})</h3>`;
+    if (!data.orders || data.orders.length === 0) {
+      html += '<p>No sales today.</p>';
+    } else {
+      html += `<p><strong>Total Sales: $${data.total_sales.toFixed(2)}</strong> (${data.total_orders} orders)</p>`;
+      html += `<table class="orders-table">
+        <thead><tr><th>Order ID</th><th>Time</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+        <tbody>
+        ${data.orders.map(o => `
+          <tr>
+            <td>${o.id}</td>
+            <td>${new Date(o.created_at).toLocaleTimeString()}</td>
+            <td>${o.username}</td>
+            <td>$${o.total_amount.toFixed(2)}</td>
+            <td>${o.status}</td>
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>`;
+    }
+    document.getElementById('booksGrid').innerHTML = html;
+  } catch (error) {
+    showNotification('Failed to load today\'s sales', 'error');
+  }
+}
+
+async function updateOrderStatusCashier(orderId, newStatus) {
+  if (!newStatus) return;
+  try {
+    const response = await fetch(`${API_URL}/orders/${orderId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ status: newStatus })
+    });
+    if (response.ok) {
+      showNotification('Order status updated!', 'success');
+      viewAllOrders();
+    } else {
+      showNotification('Failed to update order', 'error');
+    }
+  } catch (error) {
+    showNotification('Network error', 'error');
   }
 }
 

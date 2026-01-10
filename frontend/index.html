@@ -133,11 +133,50 @@
           <button onclick="viewOrders()" class="btn btn-info">View All Orders</button>
           <button onclick="viewStats()" class="btn btn-warning">Statistics</button>
         </div>
+
+        <!-- Sales Report Section -->
+        <div class="admin-section" id="salesReportSection">
+          <h3>Sales Report</h3>
+          <form id="salesReportForm" onsubmit="getSalesReport(event)">
+            <label for="salesStart">Start Date:</label>
+            <input type="date" id="salesStart" name="salesStart">
+            <label for="salesEnd">End Date:</label>
+            <input type="date" id="salesEnd" name="salesEnd">
+            <button type="submit" class="btn btn-info">View Report</button>
+            <button type="button" onclick="exportSalesReport()" class="btn btn-secondary">Export CSV</button>
+          </form>
+          <div id="salesReportResults"></div>
+        </div>
+
+        <!-- Supplier Ordering Section -->
+        <div class="admin-section" id="supplierOrderSection">
+          <h3>Supplier Orders</h3>
+          <button onclick="viewBooksNeedingReorder()" class="btn btn-warning">Books Below Threshold</button>
+          <button onclick="viewSupplierOrders()" class="btn btn-info">View All Supplier Orders</button>
+          <button onclick="showCreateSupplierOrderForm()" class="btn btn-success">Create Supplier Order</button>
+          <div id="supplierOrderResults"></div>
+        </div>
+
+        <!-- Audit Log Section -->
+        <div class="admin-section" id="auditLogSection">
+          <h3>Audit Logs</h3>
+          <button onclick="viewAuditLogs()" class="btn btn-info">View All Logs</button>
+          <button onclick="viewAuditLogs('LOGIN_')" class="btn btn-warning">Login Attempts</button>
+          <button onclick="viewAuditLogs('ORDER_')" class="btn btn-primary">Order Actions</button>
+          <div id="auditLogResults"></div>
+        </div>
       </div>
 
-      <!-- User Orders Button (for customers) -->
+      <!-- User Orders Button (for customers and cashiers) -->
       <div id="customerPanel" class="customer-panel" style="display: none;">
         <button onclick="viewMyOrders()" class="btn btn-info">My Orders</button>
+      </div>
+
+      <!-- Cashier Panel -->
+      <div id="cashierPanel" class="cashier-panel" style="display: none;">
+        <h3>Cashier Actions</h3>
+        <button onclick="viewAllOrders()" class="btn btn-info">View All Orders</button>
+        <button onclick="viewTodaysSales()" class="btn btn-success">Today's Sales</button>
       </div>
 
       <!-- Books Grid -->
