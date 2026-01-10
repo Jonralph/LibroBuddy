@@ -659,6 +659,7 @@ async function editBook(bookId) {
     document.getElementById('bookStock').value = book.stock_quantity;
     document.getElementById('bookPublisher').value = book.publisher || '';
     document.getElementById('bookYear').value = book.publication_year || '';
+    document.getElementById('bookImageUrl').value = book.image_url || '';
 
     document.getElementById('bookFormModal').style.display = 'block';
   } catch (error) {
@@ -691,7 +692,8 @@ async function saveBook(event) {
     price: parseFloat(document.getElementById('bookPrice').value),
     stock_quantity: parseInt(document.getElementById('bookStock').value),
     publisher: document.getElementById('bookPublisher').value,
-    publication_year: parseInt(document.getElementById('bookYear').value) || null
+    publication_year: parseInt(document.getElementById('bookYear').value) || null,
+    image_url: document.getElementById('bookImageUrl').value || null
   };
 
   try {

@@ -29,7 +29,7 @@ html {
 
 /* Root variables for mysterious rare bookstore theme */
 :root {
-  --primary-color: #1a1a2e;      /* Deep midnight blue */
+  --primary-color: #444479;      /* Deep midnight blue */
   --secondary-color: #8b7355;    /* Antique bronze/gold */
   --accent-color: #c9a961;       /* Vintage gold */
   --success-color: #6b8e23;      /* Muted olive green */

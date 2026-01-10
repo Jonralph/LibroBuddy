@@ -410,10 +410,10 @@ app.get('/api/books/:id', (req, res) => {
  * Create new book (Admin only)
  * 
  * Requires authentication and admin role
- * Body: { title, author, isbn, category_id, description, price, stock_quantity, publisher, publication_year }
+ * Body: { title, author, isbn, category_id, description, price, stock_quantity, publisher, publication_year, image_url }
  */
 app.post('/api/books', authenticateToken, requireAdmin, (req, res) => {
-  const { title, author, isbn, category_id, description, price, stock_quantity, publisher, publication_year } = req.body;
+  const { title, author, isbn, category_id, description, price, stock_quantity, publisher, publication_year, image_url } = req.body;
 
   // Validate required fields
   if (!title || !author || !isbn || !price) {
@@ -427,8 +427,8 @@ app.post('/api/books', authenticateToken, requireAdmin, (req, res) => {
 
   // Insert book
   const sql = `
-    INSERT INTO books (title, author, isbn, category_id, description, price, stock_quantity, publisher, publication_year)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO books (title, author, isbn, category_id, description, price, stock_quantity, publisher, publication_year, image_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   db.run(sql, [
@@ -440,7 +440,8 @@ app.post('/api/books', authenticateToken, requireAdmin, (req, res) => {
     price,
     stock_quantity || 0,
     sanitizeInput(publisher),
-    publication_year || null
+    publication_year || null,
+    sanitizeInput(image_url) || null
   ], function(err) {
     if (err) {
       if (err.message.includes('UNIQUE')) {
@@ -463,12 +464,12 @@ app.post('/api/books', authenticateToken, requireAdmin, (req, res) => {
  */
 app.put('/api/books/:id', authenticateToken, requireAdmin, (req, res) => {
   const bookId = req.params.id;
-  const { title, author, isbn, category_id, description, price, stock_quantity, publisher, publication_year } = req.body;
+  const { title, author, isbn, category_id, description, price, stock_quantity, publisher, publication_year, image_url } = req.body;
 
   const sql = `
     UPDATE books 
     SET title = ?, author = ?, isbn = ?, category_id = ?, description = ?, 
-        price = ?, stock_quantity = ?, publisher = ?, publication_year = ?
+        price = ?, stock_quantity = ?, publisher = ?, publication_year = ?, image_url = ?
     WHERE id = ?
   `;
 
@@ -482,6 +483,7 @@ app.put('/api/books/:id', authenticateToken, requireAdmin, (req, res) => {
     stock_quantity,
     sanitizeInput(publisher),
     publication_year,
+    sanitizeInput(image_url) || null,
     bookId
   ], function(err) {
     if (err) {
