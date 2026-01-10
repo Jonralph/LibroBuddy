@@ -39,6 +39,34 @@ LibroBuddy is like an online bookstore that you can visit in your web browser. T
    ```
    You'll see the LibroBuddy website!
 
+### Setting Up VS Code & GitHub (one-time)
+
+1) **Install the tools**
+   - VS Code: download and install from code.visualstudio.com
+   - Git for Windows: download from git-scm.com and choose “Use Git from the command line” during setup
+   - Node.js (if not already installed): download LTS from nodejs.org
+
+2) **Sign in to GitHub inside VS Code**
+   - Open VS Code → press Ctrl+Shift+P → type `GitHub: Sign in` → follow the browser prompt to authorize
+
+3) **Get the project code**
+   - In VS Code: Source Control (left sidebar) → “Clone Repository” → paste your repo URL (e.g., https://github.com/your-name/librobuddy.git) → pick a folder → “Open” when prompted
+   - Or with a terminal: `git clone https://github.com/your-name/librobuddy.git && cd librobuddy`
+
+4) **Open and run it in VS Code**
+   - File → Open Folder… → choose the `LibroBuddy` folder
+   - Open the VS Code terminal (Ctrl+`) and run:
+     - `npm install`
+     - `npm run init-db`
+     - `npm start`
+   - Visit http://localhost:3000 in your browser
+
+5) **Save your changes back to GitHub**
+   - `git status` (see what changed)
+   - `git add .`
+   - `git commit -m "your message"`
+   - `git push` (sign in if prompted)
+
 ### Logging In
 
 The system comes with two test accounts:
