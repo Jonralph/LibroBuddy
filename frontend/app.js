@@ -52,14 +52,40 @@ async function getSalesReport(event) {
 }
 
 
-function exportSalesReport() {
+async function exportSalesReport() {
   const start = document.getElementById('salesStart').value;
   const end = document.getElementById('salesEnd').value;
   let url = `${API_URL}/sales-report?format=csv`;
   if (start) url += `&start=${start}`;
   if (end) url += `&end=${end}`;
-  window.open(url, '_blank');
+
+  try {
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+
+    if (!response.ok) {
+      showNotification('Failed to export report', 'error');
+      return;
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `sales-report-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+
+    showNotification('Report exported successfully!', 'success');
+  } catch (error) {
+    console.error('Error exporting report:', error);
+    showNotification('Failed to export report', 'error');
+  }
 }
+
 // GLOBAL VARIABLES AND CONFIGURATION
 // ============================================
 
