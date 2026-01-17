@@ -1394,7 +1394,33 @@ async function updateSupplierOrderStatus(orderId) {
 // ============================================
 // AUDIT LOG FUNCTIONS (ADMIN)
 // ============================================
-async function viewAuditLogs(actionFilter = '') {
+function renderAuditLogs(title, logs, summaryHtml = '') {
+  let html = `<h4>${title}</h4>`;
+  if (summaryHtml) {
+    html += summaryHtml;
+  }
+  if (logs.length === 0) {
+    html += '<p>No audit logs found.</p>';
+  } else {
+    html += `<table class="audit-table">
+      <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th><th>IP</th></tr></thead>
+      <tbody>
+      ${logs.map(log => `
+        <tr>
+          <td>${new Date(log.created_at).toLocaleString()}</td>
+          <td>${log.username || 'N/A'}</td>
+          <td>${log.action}</td>
+          <td>${log.details || ''}</td>
+          <td>${log.ip_address || 'N/A'}</td>
+        </tr>
+      `).join('')}
+      </tbody>
+    </table>`;
+  }
+  document.getElementById('auditLogResults').innerHTML = html;
+}
+
+async function viewAuditLogs(actionFilter = '', titleOverride = '') {
   try {
     let url = `${API_URL}/audit-logs`;
     if (actionFilter) {
@@ -1403,30 +1429,153 @@ async function viewAuditLogs(actionFilter = '') {
     const response = await fetch(url, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
+    if (!response.ok) {
+      let message = 'Failed to load audit logs';
+      try {
+        const errorData = await response.json();
+        if (errorData && errorData.error) {
+          message = errorData.error;
+        }
+      } catch (parseError) {
+        // Ignore parse errors and keep default message.
+      }
+      showNotification(message, 'error');
+      return;
+    }
+
     const logs = await response.json();
-    
-    let html = `<h4>Audit Logs${actionFilter ? ` (${actionFilter}*)` : ''}</h4>`;
-    if (logs.length === 0) {
-      html += '<p>No audit logs found.</p>';
+    if (!Array.isArray(logs)) {
+      showNotification('Failed to load audit logs', 'error');
+      return;
+    }
+    const title = titleOverride || `Audit Logs${actionFilter ? ` (${actionFilter}*)` : ''}`;
+    renderAuditLogs(title, logs);
+  } catch (error) {
+    showNotification('Failed to load audit logs', 'error');
+  }
+}
+
+async function viewSalesLog() {
+  try {
+    const response = await fetch(`${API_URL}/sales-report`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    const rows = await response.json();
+    const totalSales = rows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
+    const totalOrders = rows.length;
+
+    let html = `<h4>Sales Log</h4>
+      <p><strong>Total Sales:</strong> $${totalSales.toFixed(2)} (${totalOrders} orders)</p>`;
+
+    if (rows.length === 0) {
+      html += '<p>No sales found.</p>';
     } else {
-      html += `<table class="audit-table">
-        <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th><th>IP</th></tr></thead>
+      html += `<table class="sales-report-table">
+        <thead><tr><th>Order ID</th><th>Date</th><th>User</th><th>Total</th><th>Status</th></tr></thead>
         <tbody>
-        ${logs.map(log => `
+        ${rows.map(r => `
           <tr>
-            <td>${new Date(log.created_at).toLocaleString()}</td>
-            <td>${log.username || 'N/A'}</td>
-            <td>${log.action}</td>
-            <td>${log.details || ''}</td>
-            <td>${log.ip_address || 'N/A'}</td>
+            <td>${r.id}</td>
+            <td>${new Date(r.created_at).toLocaleString()}</td>
+            <td>${r.username}</td>
+            <td>$${Number(r.total_amount || 0).toFixed(2)}</td>
+            <td>${r.status}</td>
           </tr>
         `).join('')}
         </tbody>
       </table>`;
     }
+
     document.getElementById('auditLogResults').innerHTML = html;
   } catch (error) {
-    showNotification('Failed to load audit logs', 'error');
+    showNotification('Failed to load sales log', 'error');
+  }
+}
+
+async function viewLoginAttempts() {
+  try {
+    const response = await fetch(`${API_URL}/audit-logs?action=LOGIN_`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (!response.ok) {
+      let message = 'Failed to load login attempts';
+      try {
+        const errorData = await response.json();
+        if (errorData && errorData.error) {
+          message = errorData.error;
+        }
+      } catch (parseError) {
+        // Ignore parse errors and keep default message.
+      }
+      showNotification(message, 'error');
+      return;
+    }
+
+    const logs = await response.json();
+    if (!Array.isArray(logs)) {
+      showNotification('Failed to load login attempts', 'error');
+      return;
+    }
+    const totalAttempts = logs.length;
+    const successCount = logs.filter(log => log.action === 'LOGIN_SUCCESS').length;
+    const failedCount = logs.filter(log => log.action === 'LOGIN_FAILED').length;
+    const summary = `<p><strong>Total login attempts:</strong> ${totalAttempts} (Success: ${successCount}, Failed: ${failedCount})</p>`;
+    renderAuditLogs('Login Attempts', logs, summary);
+  } catch (error) {
+    showNotification('Failed to load login attempts', 'error');
+  }
+}
+
+async function viewOrderActions() {
+  await viewAuditLogs('ORDER_', 'Order Actions');
+  const orderIdInput = prompt('Enter an order ID to view or cancel. Leave blank to skip.');
+  if (!orderIdInput) {
+    return;
+  }
+  const orderId = Number(orderIdInput);
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    showNotification('Invalid order ID', 'error');
+    return;
+  }
+  const action = prompt('Type VIEW to open the order, or CANCEL to cancel it.');
+  if (!action) {
+    return;
+  }
+  const normalizedAction = action.trim().toUpperCase();
+  if (normalizedAction === 'VIEW') {
+    viewOrderDetails(orderId);
+    return;
+  }
+  if (normalizedAction === 'CANCEL') {
+    const confirmCancel = confirm(`Cancel order #${orderId}?`);
+    if (!confirmCancel) {
+      return;
+    }
+    await cancelOrder(orderId);
+    viewOrderDetails(orderId);
+    return;
+  }
+  showNotification('Action not recognized. Use VIEW or CANCEL.', 'info');
+}
+
+async function cancelOrder(orderId) {
+  try {
+    const response = await fetch(`${API_URL}/orders/${orderId}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ status: 'cancelled' })
+    });
+    const data = await response.json();
+    if (response.ok) {
+      showNotification('Order cancelled.', 'success');
+    } else {
+      showNotification(data.error || 'Failed to cancel order', 'error');
+    }
+  } catch (error) {
+    showNotification('Network error', 'error');
   }
 }
 
