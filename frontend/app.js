@@ -51,6 +51,7 @@ async function getSalesReport(event) {
   }
 }
 
+
 function exportSalesReport() {
   const start = document.getElementById('salesStart').value;
   const end = document.getElementById('salesEnd').value;
