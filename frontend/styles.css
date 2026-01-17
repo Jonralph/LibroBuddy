@@ -860,7 +860,7 @@ body::before {
 
 .modal-content {
   background: linear-gradient(135deg, var(--card-bg), rgba(31,45,77,0.95));
-  margin: 2rem auto;
+  margin: 8rem auto 2rem auto;
   padding: 2.5rem;
   border-radius: 4px;
   border: 2px solid var(--border-accent);

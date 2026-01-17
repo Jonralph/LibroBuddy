@@ -337,10 +337,10 @@ function initializeDatabase() {
       ['The Da Vinci Code', 'Dan Brown', '978-0307474278', 6, 'Mystery thriller about religious conspiracy', 15.99, 28, 'Anchor', 2003, 'https://covers.openlibrary.org/b/isbn/9780307474278-L.jpg']
       // Rare or less common books
       // Uncommon but real books with actual cover images
-      ,['The Master and Margarita', 'Mikhail Bulgakov', '978-0679760801', 1, 'A fantastical and satirical novel set in Soviet Russia.', 16.99, 7, 'Vintage', 1967, 'https://covers.openlibrary.org/b/isbn/9780679760801-L.jpg']
-      ,['The Wind-Up Bird Chronicle', 'Haruki Murakami', '978-0679775433', 1, 'A surreal mystery blending reality and fantasy.', 17.99, 5, 'Vintage', 1997, 'https://covers.openlibrary.org/b/isbn/9780679775433-L.jpg']
+      ,['The Master and Margarita', 'Mikhail Bulgakov', '978-0679760801', 1, 'A fantastical and satirical novel set in Soviet Russia.', 16.99, 7, 'Vintage', 1967, 'https://ia800100.us.archive.org/view_archive.php?archive=/5/items/l_covers_0012/l_covers_0012_62.zip&file=0012627518-L.jpg']
+      ,['The Wind-Up Bird Chronicle', 'Haruki Murakami', '978-0679775433', 1, 'A surreal mystery blending reality and fantasy.', 17.99, 5, 'Vintage', 1997, 'https://ia800100.us.archive.org/view_archive.php?archive=/5/items/l_covers_0012/l_covers_0012_97.zip&file=0012976127-L.jpg']
       ,['The Dispossessed', 'Ursula K. Le Guin', '978-0060512750', 1, 'A philosophical science fiction classic.', 15.99, 6, 'Harper Perennial', 1974, 'https://covers.openlibrary.org/b/isbn/9780060512750-L.jpg']
-      ,['The Man Who Was Thursday', 'G.K. Chesterton', '978-0140180930', 6, 'A metaphysical thriller and detective story.', 13.99, 4, 'Penguin Classics', 1908, 'https://covers.openlibrary.org/b/isbn/9780140180930-L.jpg']
+      ,['The Man Who Was Thursday', 'G.K. Chesterton', '978-0140183887', 6, 'A metaphysical thriller and detective story.', 13.99, 4, 'Penguin Classics', 1908, 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Chesterton_-_The_Man_Who_Was_Thursday.djvu/page1-375px-Chesterton_-_The_Man_Who_Was_Thursday.djvu.jpg']
       ,['The Book of Disquiet', 'Fernando Pessoa', '978-0141183046', 2, 'A modernist masterpiece of existential prose.', 18.99, 3, 'Penguin Classics', 1982, 'https://covers.openlibrary.org/b/isbn/9780141183046-L.jpg']
       ,['The Invention of Morel', 'Adolfo Bioy Casares', '978-1590170571', 1, 'A science fiction novella of obsession and immortality.', 14.99, 2, 'NYRB Classics', 1940, 'https://covers.openlibrary.org/b/isbn/9781590170571-L.jpg']
       ,['The Third Policeman', 'Flann O’Brien', '978-0156033237', 1, 'A darkly comic Irish novel of the absurd.', 15.99, 3, 'Dalkey Archive Press', 1967, 'https://covers.openlibrary.org/b/isbn/9780156033237-L.jpg']
