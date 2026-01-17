@@ -51,6 +51,23 @@ const db = new sqlite3.Database(dbPath, (err) => {
 // Enable foreign keys in SQLite
 db.run('PRAGMA foreign_keys = ON');
 
+// Ensure audit_log table exists (for setups created without init.js)
+db.run(`
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    action TEXT NOT NULL,
+    details TEXT,
+    ip_address TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )
+`, (err) => {
+  if (err) {
+    console.error('Error creating audit_log table:', err.message);
+  }
+});
+
 // ============================================
 // MIDDLEWARE
 // ============================================
@@ -810,21 +827,87 @@ app.put('/api/orders/:id/status', authenticateToken, checkRole(['admin', 'cashie
     return res.status(400).json({ error: 'Invalid status value.' });
   }
 
-  db.run('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-    [status, orderId],
-    function(err) {
+  db.serialize(() => {
+    db.get('SELECT id, status FROM orders WHERE id = ?', [orderId], (err, order) => {
       if (err) {
-        console.error('Error updating order status:', err.message);
+        console.error('Error fetching order:', err.message);
         return res.status(500).json({ error: 'Failed to update order status.' });
       }
-
-      if (this.changes === 0) {
+      if (!order) {
         return res.status(404).json({ error: 'Order not found.' });
       }
 
-      res.json({ message: 'Order status updated successfully.' });
-    }
-  );
+      db.run('BEGIN TRANSACTION');
+
+      db.run('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [status, orderId],
+        function(updateErr) {
+          if (updateErr) {
+            db.run('ROLLBACK');
+            console.error('Error updating order status:', updateErr.message);
+            return res.status(500).json({ error: 'Failed to update order status.' });
+          }
+
+          const shouldRestock = status === 'cancelled' && order.status !== 'cancelled';
+          if (!shouldRestock) {
+            db.run('COMMIT', (commitErr) => {
+              if (commitErr) {
+                db.run('ROLLBACK');
+                return res.status(500).json({ error: 'Failed to update order status.' });
+              }
+              return res.json({ message: 'Order status updated successfully.' });
+            });
+            return;
+          }
+
+          db.all('SELECT book_id, quantity FROM order_items WHERE order_id = ?', [orderId], (itemsErr, items) => {
+            if (itemsErr) {
+              db.run('ROLLBACK');
+              console.error('Error fetching order items:', itemsErr.message);
+              return res.status(500).json({ error: 'Failed to update order status.' });
+            }
+
+            if (items.length === 0) {
+              db.run('COMMIT', (commitErr) => {
+                if (commitErr) {
+                  db.run('ROLLBACK');
+                  return res.status(500).json({ error: 'Failed to update order status.' });
+                }
+                return res.json({ message: 'Order status updated successfully.' });
+              });
+              return;
+            }
+
+            let updated = 0;
+            items.forEach(item => {
+              db.run(
+                'UPDATE books SET stock_quantity = stock_quantity + ? WHERE id = ?',
+                [item.quantity, item.book_id],
+                (stockErr) => {
+                  if (stockErr) {
+                    db.run('ROLLBACK');
+                    console.error('Error restocking book:', stockErr.message);
+                    return res.status(500).json({ error: 'Failed to update order status.' });
+                  }
+
+                  updated += 1;
+                  if (updated === items.length) {
+                    db.run('COMMIT', (commitErr) => {
+                      if (commitErr) {
+                        db.run('ROLLBACK');
+                        return res.status(500).json({ error: 'Failed to update order status.' });
+                      }
+                      res.json({ message: 'Order status updated successfully.' });
+                    });
+                  }
+                }
+              );
+            });
+          });
+        }
+      );
+    });
+  });
 });
 
 // ============================================
@@ -1117,15 +1200,6 @@ app.get('/', (req, res) => {
 });
 
 // ============================================
-// ERROR HANDLING
-// ============================================
-
-// 404 handler for API routes
-app.use('/api/*', (req, res) => {
-  res.status(404).json({ error: 'API endpoint not found.' });
-});
-
-// ============================================
 // PAYMENT GATEWAY & CONFIRMATION EMAIL (MOCK)
 // ============================================
 
@@ -1263,6 +1337,15 @@ app.get('/api/audit-logs', authenticateToken, requireAdmin, (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(logs);
   });
+});
+
+// ============================================
+// ERROR HANDLING
+// ============================================
+
+// 404 handler for API routes
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: 'API endpoint not found.' });
 });
 
 // Global error handler
