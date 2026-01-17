@@ -343,7 +343,7 @@ function initializeDatabase() {
       ,['The Man Who Was Thursday', 'G.K. Chesterton', '978-0140183887', 6, 'A metaphysical thriller and detective story.', 13.99, 4, 'Penguin Classics', 1908, 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Chesterton_-_The_Man_Who_Was_Thursday.djvu/page1-375px-Chesterton_-_The_Man_Who_Was_Thursday.djvu.jpg']
       ,['The Book of Disquiet', 'Fernando Pessoa', '978-0141183046', 2, 'A modernist masterpiece of existential prose.', 18.99, 3, 'Penguin Classics', 1982, 'https://covers.openlibrary.org/b/isbn/9780141183046-L.jpg']
       ,['The Invention of Morel', 'Adolfo Bioy Casares', '978-1590170571', 1, 'A science fiction novella of obsession and immortality.', 14.99, 2, 'NYRB Classics', 1940, 'https://covers.openlibrary.org/b/isbn/9781590170571-L.jpg']
-      ,['The Third Policeman', 'Flann O’Brien', '978-0156033237', 1, 'A darkly comic Irish novel of the absurd.', 15.99, 3, 'Dalkey Archive Press', 1967, 'https://covers.openlibrary.org/b/isbn/9780156033237-L.jpg']
+      ,['The Third Policeman', 'Flann O’Brien', '978-0156033237', 1, 'A darkly comic Irish novel of the absurd.', 15.99, 3, 'Dalkey Archive Press', 1967, 'https://m.media-amazon.com/images/I/61JOhNzm+aL._SY522_.jpg']
       ,['The Hearing Trumpet', 'Leonora Carrington', '978-1878972194', 1, 'A surreal feminist classic.', 16.99, 2, 'Exact Change', 1976, 'https://covers.openlibrary.org/b/isbn/9781878972194-L.jpg']
     ];
 
