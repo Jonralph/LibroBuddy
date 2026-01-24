@@ -27,13 +27,14 @@ async function getSalesReport(event) {
     });
     const data = await response.json();
     let html = '';
-    if (data.length === 0) {
+    if (!data.orders || data.orders.length === 0) {
       html = '<p>No sales found for this period.</p>';
     } else {
-      html = `<table class="sales-report-table">
+      html = `<p><strong>Total Sales: $${data.total_sales.toFixed(2)}</strong> (${data.total_orders} orders)</p>`;
+      html += `<table class="sales-report-table">
         <thead><tr><th>Order ID</th><th>Date</th><th>User</th><th>Total</th><th>Status</th></tr></thead>
         <tbody>
-        ${data.map(r => `
+        ${data.orders.map(r => `
           <tr>
             <td>${r.id}</td>
             <td>${new Date(r.created_at).toLocaleString()}</td>
@@ -1460,9 +1461,12 @@ async function viewSalesLog() {
     const response = await fetch(`${API_URL}/sales-report`, {
       headers: { 'Authorization': `Bearer ${authToken}` }
     });
-    const rows = await response.json();
-    const totalSales = rows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
-    const totalOrders = rows.length;
+    const data = await response.json();
+    
+    // Handle the new response format with orders array
+    const rows = data.orders || [];
+    const totalSales = data.total_sales || 0;
+    const totalOrders = data.total_orders || 0;
 
     let html = `<h4>Sales Log</h4>
       <p><strong>Total Sales:</strong> $${totalSales.toFixed(2)} (${totalOrders} orders)</p>`;

@@ -625,6 +625,27 @@ app.get('/api/orders', authenticateToken, (req, res) => {
 });
 
 /**
+ * GET /api/orders/all
+ * Get all orders (admin and cashier only)
+ */
+app.get('/api/orders/all', authenticateToken, checkRole(['admin', 'cashier']), (req, res) => {
+  const sql = `
+    SELECT orders.*, users.username 
+    FROM orders 
+    JOIN users ON orders.user_id = users.id
+    ORDER BY orders.created_at DESC
+  `;
+
+  db.all(sql, [], (err, orders) => {
+    if (err) {
+      console.error('Error fetching all orders:', err.message);
+      return res.status(500).json({ error: 'Failed to fetch orders.' });
+    }
+    res.json(orders);
+  });
+});
+
+/**
  * GET /api/orders/:id
  * Get order details with items
  */
@@ -1110,24 +1131,24 @@ app.get('/api/books-below-threshold', authenticateToken, requireAdmin, (req, res
 });
 
 // ============================================
-// STATISTICS ROUTES (Admin only)
+// STATISTICS ROUTES (Admin and Cashier)
 
 /**
  * GET /api/sales-report
  * Get sales report (optionally filtered by date range)
  * Query params: start (YYYY-MM-DD), end (YYYY-MM-DD), format=csv (optional)
- * Admin only
+ * Admin and Cashier access
  */
-app.get('/api/sales-report', authenticateToken, requireAdmin, (req, res) => {
+app.get('/api/sales-report', authenticateToken, checkRole(['admin', 'cashier']), (req, res) => {
   let { start, end, format } = req.query;
   let params = [];
-  let where = 'WHERE status != "cancelled"';
+  let where = 'WHERE orders.status != "cancelled"';
   if (start) {
-    where += ' AND DATE(created_at) >= ?';
+    where += ' AND DATE(orders.created_at) >= ?';
     params.push(start);
   }
   if (end) {
-    where += ' AND DATE(created_at) <= ?';
+    where += ' AND DATE(orders.created_at) <= ?';
     params.push(end);
   }
   const sql = `
@@ -1152,7 +1173,17 @@ app.get('/api/sales-report', authenticateToken, requireAdmin, (req, res) => {
       res.setHeader('Content-Disposition', 'attachment; filename="sales_report.csv"');
       return res.send(csv);
     }
-    res.json(rows);
+    
+    // Calculate summary statistics
+    const totalSales = rows.reduce((sum, row) => sum + row.total_amount, 0);
+    const totalOrders = rows.length;
+    
+    // Return formatted response with orders and summary
+    res.json({
+      orders: rows,
+      total_sales: totalSales,
+      total_orders: totalOrders
+    });
   });
 });
 // ============================================
