@@ -1347,9 +1347,9 @@ app.post('/api/process-payment', authenticateToken, async (req, res) => {
             // Continue anyway as payment was processed
           }
 
-          // Get order details for confirmation email
+            // Get order details for confirmation email
           const orderQuery = `
-            SELECT o.id, o.total_amount as total_price, u.username, u.email,
+            SELECT o.id, o.total_amount, o.status, u.username, u.email,
                    GROUP_CONCAT(b.title || ' x ' || oi.quantity, ', ') as items
             FROM orders o
             JOIN users u ON o.user_id = u.id
@@ -1377,7 +1377,7 @@ ORDER CONFIRMATION
 ─────────────────
 Order ID: #${orderData.id}
 Payment ID: ${payment_id}
-Amount: $${orderData.total_price.toFixed(2)}
+Amount: $${orderData.total_amount.toFixed(2)}
 Payment Method: Credit Card (****${last_four})
 Status: Processing
 
