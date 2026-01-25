@@ -180,10 +180,14 @@ function showMainContent() {
     document.getElementById('adminPanel').style.display = 'none';
     document.getElementById('customerPanel').style.display = 'block';
     document.getElementById('cashierPanel').style.display = 'block';
+    const custBtn = document.querySelector('#customerPanel button');
+    if (custBtn) custBtn.textContent = 'Orders';
   } else {
     document.getElementById('adminPanel').style.display = 'none';
     document.getElementById('customerPanel').style.display = 'block';
     document.getElementById('cashierPanel').style.display = 'none';
+    const custBtn = document.querySelector('#customerPanel button');
+    if (custBtn) custBtn.textContent = 'My Orders';
   }
 }
 
@@ -1841,6 +1845,7 @@ async function viewAllOrders() {
                 <option value="delivered">Delivered</option>
                 <option value="cancelled">Cancelled</option>
               </select>
+              <button class="btn btn-danger btn-sm" onclick="cancelOrder(${o.id})" ${['cancelled','delivered'].includes(o.status) ? 'disabled' : ''}>Cancel</button>
             </td>
           </tr>
         `).join('')}
