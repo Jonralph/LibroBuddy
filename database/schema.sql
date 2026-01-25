@@ -103,6 +103,36 @@ CREATE TABLE IF NOT EXISTS reviews (
 );
 
 -- ============================================
+-- PAYMENTS TABLE
+-- ============================================
+-- Payment transaction records
+CREATE TABLE IF NOT EXISTS payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id INTEGER NOT NULL,               -- Associated order
+  user_id INTEGER NOT NULL,                -- User who made payment
+  payment_id TEXT UNIQUE NOT NULL,         -- Unique payment transaction ID
+  payment_method TEXT NOT NULL,            -- Payment method (credit_card, paypal, etc.)
+  amount REAL NOT NULL CHECK(amount >= 0), -- Amount paid
+  currency TEXT DEFAULT 'USD',             -- Currency code
+  status TEXT DEFAULT 'completed'          -- Payment status
+    CHECK(status IN ('pending', 'processing', 'completed', 'failed', 'refunded')),
+  cardholder_name TEXT,                    -- Name on card (encrypted in real app)
+  last_four_digits TEXT,                   -- Last 4 digits of card (for display)
+  billing_name TEXT,                       -- Billing name
+  billing_email TEXT,                      -- Billing email
+  billing_address TEXT,                    -- Billing address
+  billing_city TEXT,                       -- City
+  billing_state TEXT,                      -- State/Province
+  billing_zipcode TEXT,                    -- ZIP/Postal code
+  billing_country TEXT,                    -- Country
+  transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- ============================================
 -- INDEXES FOR PERFORMANCE
 -- ============================================
 -- These indexes speed up common queries
@@ -122,3 +152,9 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 
 -- Index for finding book reviews
 CREATE INDEX IF NOT EXISTS idx_reviews_book ON reviews(book_id);
+
+-- Index for finding payments by order
+CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id);
+
+-- Index for finding payments by user
+CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);

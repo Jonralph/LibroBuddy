@@ -296,6 +296,154 @@
     </div>
 
     <!-- ============================================ -->
+    <!-- PAYMENT CHECKOUT MODAL -->
+    <!-- ============================================ -->
+    <div id="checkoutModal" class="modal">
+      <div class="modal-content checkout-modal">
+        <span class="close" onclick="closeCheckoutModal()">&times;</span>
+        <h2>Credit Card Checkout</h2>
+        
+        <div class="checkout-container">
+          <!-- Order Summary -->
+          <div class="checkout-summary">
+            <h3>Order Summary</h3>
+            <div id="checkoutSummary"></div>
+          </div>
+
+          <!-- Payment Form -->
+          <div class="checkout-form">
+            <h3>Payment Information</h3>
+            <form id="checkoutForm" onsubmit="processCheckoutPayment(event)">
+              
+              <!-- Billing Information -->
+              <fieldset>
+                <legend>Billing Address</legend>
+                
+                <div class="form-group">
+                  <label for="fullName">Full Name *</label>
+                  <input type="text" id="fullName" required placeholder="John Doe" class="form-control">
+                </div>
+
+                <div class="form-group">
+                  <label for="email">Email Address *</label>
+                  <input type="email" id="email" required placeholder="john@example.com" class="form-control">
+                </div>
+
+                <div class="form-group">
+                  <label for="address">Street Address *</label>
+                  <input type="text" id="address" required placeholder="123 Main Street" class="form-control">
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="city">City *</label>
+                    <input type="text" id="city" required placeholder="New York" class="form-control">
+                  </div>
+                  <div class="form-group">
+                    <label for="state">State/Province *</label>
+                    <input type="text" id="state" required placeholder="NY" class="form-control">
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="zipcode">ZIP/Postal Code *</label>
+                    <input type="text" id="zipcode" required placeholder="10001" class="form-control">
+                  </div>
+                  <div class="form-group">
+                    <label for="country">Country *</label>
+                    <input type="text" id="country" required placeholder="United States" class="form-control">
+                  </div>
+                </div>
+              </fieldset>
+
+              <hr>
+
+              <!-- Credit Card Information -->
+              <fieldset>
+                <legend>Credit Card Details</legend>
+                
+                <div class="form-group">
+                  <label for="cardholderName">Name on Card *</label>
+                  <input type="text" id="cardholderName" required placeholder="John Doe" class="form-control">
+                </div>
+
+                <div class="form-group">
+                  <label for="cardNumber">Card Number *</label>
+                  <div class="card-input-wrapper">
+                    <input 
+                      type="text" 
+                      id="cardNumber" 
+                      required 
+                      placeholder="1234 5678 9012 3456"
+                      maxlength="19"
+                      class="form-control card-input"
+                      oninput="formatCardNumber(this)"
+                    >
+                    <span id="cardIcon" class="card-icon"></span>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="expiryDate">Expiry Date (MM/YY) *</label>
+                    <input 
+                      type="text" 
+                      id="expiryDate" 
+                      required 
+                      placeholder="12/25"
+                      maxlength="5"
+                      class="form-control"
+                      oninput="formatExpiryDate(this)"
+                    >
+                  </div>
+                  <div class="form-group">
+                    <label for="cvv">CVV *</label>
+                    <input 
+                      type="text" 
+                      id="cvv" 
+                      required 
+                      placeholder="123"
+                      maxlength="4"
+                      class="form-control"
+                      oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                    >
+                  </div>
+                </div>
+              </fieldset>
+
+              <div class="form-group checkbox">
+                <input type="checkbox" id="sameAddress" name="sameAddress">
+                <label for="sameAddress">Billing address same as shipping address</label>
+              </div>
+
+              <button type="submit" class="btn btn-success btn-block" id="submitPaymentBtn">
+                Complete Purchase - $<span id="paymentTotal">0.00</span>
+              </button>
+
+              <p class="payment-security">
+                🔒 Your payment information is secure and encrypted
+              </p>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAYMENT SUCCESS MODAL -->
+    <!-- ============================================ -->
+    <div id="successModal" class="modal">
+      <div class="modal-content success-modal">
+        <div class="success-check">✓</div>
+        <h2>Payment Successful!</h2>
+        <p id="successMessage"></p>
+        <div id="successDetails" class="success-details"></div>
+        <button onclick="closeSuccessModal()" class="btn btn-primary">Continue Shopping</button>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
     <!-- NOTIFICATION/ALERT AREA -->
     <!-- ============================================ -->
     <!-- Toast notifications for user feedback -->

@@ -1234,9 +1234,52 @@ app.get('/', (req, res) => {
 // PAYMENT GATEWAY & CONFIRMATION EMAIL (MOCK)
 // ============================================
 
+// Ensure payments table exists
+db.run(`
+  CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    payment_id TEXT UNIQUE NOT NULL,
+    payment_method TEXT NOT NULL,
+    amount REAL NOT NULL CHECK(amount >= 0),
+    currency TEXT DEFAULT 'USD',
+    status TEXT DEFAULT 'completed'
+      CHECK(status IN ('pending', 'processing', 'completed', 'failed', 'refunded')),
+    cardholder_name TEXT,
+    last_four_digits TEXT,
+    billing_name TEXT,
+    billing_email TEXT,
+    billing_address TEXT,
+    billing_city TEXT,
+    billing_state TEXT,
+    billing_zipcode TEXT,
+    billing_country TEXT,
+    transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )
+`);
+
 // Mock payment endpoint
 app.post('/api/process-payment', authenticateToken, async (req, res) => {
-  const { order_id, payment_method, card_number, card_expiry, card_cvv } = req.body;
+  const { 
+    order_id, 
+    payment_method, 
+    card_number, 
+    card_expiry, 
+    card_cvv,
+    cardholder_name,
+    billing_name,
+    billing_email,
+    billing_address,
+    billing_city,
+    billing_state,
+    billing_zipcode,
+    billing_country
+  } = req.body;
 
   // Basic validation
   if (!order_id || !payment_method) {
@@ -1257,64 +1300,139 @@ app.post('/api/process-payment', authenticateToken, async (req, res) => {
   // Mock successful payment
   const payment_id = 'PAY-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
   const transaction_date = new Date().toISOString();
+  const last_four = card_number.slice(-4);
 
-  // Update order status to 'Confirmed'
-  const updateQuery = `UPDATE orders SET status = 'Confirmed' WHERE id = ?`;
+  // Update order status to 'processing'
+  const updateQuery = `UPDATE orders SET status = 'processing', updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
   db.run(updateQuery, [order_id], function(err) {
     if (err) return res.status(500).json({ error: 'Failed to update order status' });
 
-    // Get order details for confirmation email
-    const orderQuery = `
-      SELECT o.id, o.total_amount as total_price, u.username, u.email,
-             GROUP_CONCAT(b.title || ' x ' || oi.quantity, ', ') as items
-      FROM orders o
-      JOIN users u ON o.user_id = u.id
-      JOIN order_items oi ON o.id = oi.order_id
-      JOIN books b ON oi.book_id = b.id
-      WHERE o.id = ?
-      GROUP BY o.id
+    // Insert payment record
+    const insertPaymentQuery = `
+      INSERT INTO payments (
+        order_id, user_id, payment_id, payment_method, amount, status,
+        cardholder_name, last_four_digits, billing_name, billing_email,
+        billing_address, billing_city, billing_state, billing_zipcode, billing_country
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    
-    db.get(orderQuery, [order_id], (err, order) => {
+
+    // Get order amount first
+    db.get(`SELECT total_amount FROM orders WHERE id = ?`, [order_id], (err, order) => {
       if (err || !order) {
         return res.status(500).json({ error: 'Failed to fetch order details' });
       }
 
-      // Mock sending confirmation email (log to console)
-      const confirmationEmail = {
-        to: order.email,
-        subject: 'Order Confirmation - LibroBuddy',
-        body: `
-          Dear ${order.username},
-          
-          Thank you for your order! Your payment has been processed successfully.
-          
-          Order ID: ${order.id}
-          Payment ID: ${payment_id}
-          Total: $${order.total_price.toFixed(2)}
-          Items: ${order.items}
-          
-          Your order will be processed shortly.
-          
-          Best regards,
-          LibroBuddy Team
-        `
-      };
+      db.run(
+        insertPaymentQuery,
+        [
+          order_id,
+          req.user.id,
+          payment_id,
+          payment_method,
+          order.total_amount,
+          'completed',
+          cardholder_name,
+          last_four,
+          billing_name,
+          billing_email,
+          billing_address,
+          billing_city,
+          billing_state,
+          billing_zipcode,
+          billing_country
+        ],
+        function(err) {
+          if (err) {
+            console.error('Error inserting payment record:', err);
+            // Continue anyway as payment was processed
+          }
 
-      console.log('\n========== CONFIRMATION EMAIL ==========');
-      console.log(`To: ${confirmationEmail.to}`);
-      console.log(`Subject: ${confirmationEmail.subject}`);
-      console.log(`Body: ${confirmationEmail.body}`);
-      console.log('=========================================\n');
+          // Get order details for confirmation email
+          const orderQuery = `
+            SELECT o.id, o.total_amount as total_price, u.username, u.email,
+                   GROUP_CONCAT(b.title || ' x ' || oi.quantity, ', ') as items
+            FROM orders o
+            JOIN users u ON o.user_id = u.id
+            JOIN order_items oi ON o.id = oi.order_id
+            JOIN books b ON oi.book_id = b.id
+            WHERE o.id = ?
+            GROUP BY o.id
+          `;
+          
+          db.get(orderQuery, [order_id], (err, orderData) => {
+            if (err || !orderData) {
+              return res.status(500).json({ error: 'Failed to fetch order details' });
+            }
 
-      // Return payment confirmation
-      res.json({
-        success: true,
-        payment_id,
-        transaction_date,
-        message: 'Payment processed successfully. Confirmation email sent.',
-        order
-      });
+            // Mock sending confirmation email (log to console)
+            const confirmationEmail = {
+              to: billing_email || orderData.email,
+              subject: 'Payment Confirmation - LibroBuddy Order #' + order_id,
+              body: `
+Dear ${billing_name || orderData.username},
+
+Thank you for your payment! Your order has been confirmed and is being processed.
+
+ORDER CONFIRMATION
+─────────────────
+Order ID: #${orderData.id}
+Payment ID: ${payment_id}
+Amount: $${orderData.total_price.toFixed(2)}
+Payment Method: Credit Card (****${last_four})
+Status: Processing
+
+ITEMS ORDERED
+─────────────
+${orderData.items}
+
+BILLING INFORMATION
+───────────────────
+Name: ${billing_name}
+Email: ${billing_email}
+Address: ${billing_address}
+City: ${billing_city}, ${billing_state} ${billing_zipcode}
+Country: ${billing_country}
+
+Your order will be shipped within 3-5 business days.
+You will receive a tracking number via email once your order ships.
+
+Questions? Contact support@librobuddy.com
+
+Best regards,
+LibroBuddy Team
+              `
+            };
+
+            console.log('\n========== PAYMENT CONFIRMATION EMAIL ==========');
+            console.log(`To: ${confirmationEmail.to}`);
+            console.log(`Subject: ${confirmationEmail.subject}`);
+            console.log(`\n${confirmationEmail.body}`);
+            console.log('==============================================\n');
+
+            // Log to audit log
+            const auditQuery = `
+              INSERT INTO audit_log (user_id, action, details, ip_address)
+              VALUES (?, ?, ?, ?)
+            `;
+            db.run(
+              auditQuery,
+              [req.user.id, 'payment_processed', `Payment ${payment_id} for order ${order_id}`, req.ip],
+              (err) => {
+                if (err) console.error('Error logging audit:', err);
+              }
+            );
+
+            // Return payment confirmation
+            res.json({
+              success: true,
+              payment_id,
+              transaction_date,
+              message: 'Payment processed successfully. Confirmation email sent.',
+              order: orderData
+            });
+          });
+        }
+      );
     });
   });
 });

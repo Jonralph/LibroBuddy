@@ -963,7 +963,7 @@ function toggleCart() {
 }
 
 /**
- * Checkout - create order from cart
+ * Checkout - create order and show payment form
  */
 async function checkout() {
   if (cart.length === 0) {
@@ -971,7 +971,7 @@ async function checkout() {
     return;
   }
 
-  // Prepare order items
+  // Create order first
   const items = cart.map(item => ({
     book_id: item.book.id,
     quantity: item.quantity
@@ -990,23 +990,249 @@ async function checkout() {
     const data = await response.json();
 
     if (response.ok) {
-      showNotification(`Order placed successfully! Order #${data.orderId}`, 'success');
+      // Store order ID for payment processing
+      window.currentOrderId = data.orderId;
+      window.currentOrderTotal = data.total_amount;
       
-      // Clear cart
-      cart = [];
-      localStorage.setItem('cart', JSON.stringify(cart));
-      updateCartDisplay();
+      // Show checkout modal with payment form
+      showCheckoutModal();
       toggleCart();
-      
-      // Reload books to show updated stock
-      loadBooks();
     } else {
-      showNotification(data.error || 'Failed to place order', 'error');
+      showNotification(data.error || 'Failed to create order', 'error');
     }
   } catch (error) {
     console.error('Error placing order:', error);
     showNotification('Network error', 'error');
   }
+}
+
+/**
+ * Show checkout modal with payment form
+ */
+function showCheckoutModal() {
+  // Populate order summary
+  let summaryHtml = '';
+  let total = 0;
+
+  cart.forEach(item => {
+    const itemTotal = item.book.price * item.quantity;
+    total += itemTotal;
+    summaryHtml += `
+      <div class="checkout-item">
+        <div>
+          <div class="checkout-item-title">${item.book.title}</div>
+          <span class="checkout-item-qty">x${item.quantity}</span>
+        </div>
+        <span class="checkout-item-price">$${itemTotal.toFixed(2)}</span>
+      </div>
+    `;
+  });
+
+  summaryHtml += `
+    <div class="checkout-total-line">
+      <span class="checkout-total-label">Total:</span>
+      <span class="checkout-total-amount">$${total.toFixed(2)}</span>
+    </div>
+  `;
+
+  document.getElementById('checkoutSummary').innerHTML = summaryHtml;
+  document.getElementById('paymentTotal').textContent = total.toFixed(2);
+
+  // Show modal
+  const modal = document.getElementById('checkoutModal');
+  modal.style.display = 'block';
+}
+
+/**
+ * Close checkout modal
+ */
+function closeCheckoutModal() {
+  document.getElementById('checkoutModal').style.display = 'none';
+}
+
+/**
+ * Format credit card number with spaces
+ */
+function formatCardNumber(input) {
+  let value = input.value.replace(/\s+/g, '').replace(/[^0-9]/g, '');
+  let formattedValue = '';
+  
+  for (let i = 0; i < value.length; i++) {
+    if (i > 0 && i % 4 === 0) {
+      formattedValue += ' ';
+    }
+    formattedValue += value[i];
+  }
+  
+  input.value = formattedValue;
+
+  // Detect card type
+  detectCardType(value);
+}
+
+/**
+ * Detect card type (Visa, Mastercard, Amex, etc.)
+ */
+function detectCardType(cardNumber) {
+  const cardIcon = document.getElementById('cardIcon');
+  
+  if (/^4[0-9]{12}(?:[0-9]{3})?$/.test(cardNumber)) {
+    cardIcon.textContent = '💳 Visa';
+  } else if (/^5[1-5][0-9]{14}$/.test(cardNumber)) {
+    cardIcon.textContent = '💳 Mastercard';
+  } else if (/^3[47][0-9]{13}$/.test(cardNumber)) {
+    cardIcon.textContent = '💳 Amex';
+  } else if (/^6(?:011|5[0-9]{2})[0-9]{12}$/.test(cardNumber)) {
+    cardIcon.textContent = '💳 Discover';
+  } else {
+    cardIcon.textContent = '';
+  }
+}
+
+/**
+ * Format expiry date MM/YY
+ */
+function formatExpiryDate(input) {
+  let value = input.value.replace(/\D/g, '');
+  
+  if (value.length >= 2) {
+    value = value.slice(0, 2) + '/' + value.slice(2, 4);
+  }
+  
+  input.value = value;
+}
+
+/**
+ * Process credit card payment
+ */
+async function processCheckoutPayment(event) {
+  event.preventDefault();
+
+  // Get form values
+  const cardNumber = document.getElementById('cardNumber').value.replace(/\s+/g, '');
+  const cardExpiry = document.getElementById('expiryDate').value;
+  const cardCVV = document.getElementById('cvv').value;
+  const cardholderName = document.getElementById('cardholderName').value;
+  const fullName = document.getElementById('fullName').value;
+  const email = document.getElementById('email').value;
+  const address = document.getElementById('address').value;
+  const city = document.getElementById('city').value;
+  const state = document.getElementById('state').value;
+  const zipcode = document.getElementById('zipcode').value;
+  const country = document.getElementById('country').value;
+
+  // Validate card information
+  if (cardNumber.length < 13 || cardNumber.length > 19) {
+    showNotification('Invalid card number', 'error');
+    return;
+  }
+
+  if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
+    showNotification('Invalid expiry date (use MM/YY)', 'error');
+    return;
+  }
+
+  if (cardCVV.length < 3 || cardCVV.length > 4) {
+    showNotification('Invalid CVV', 'error');
+    return;
+  }
+
+  // Disable submit button
+  const submitBtn = document.getElementById('submitPaymentBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Processing...';
+
+  try {
+    const response = await fetch(`${API_URL}/process-payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        order_id: window.currentOrderId,
+        payment_method: 'credit_card',
+        card_number: cardNumber,
+        card_expiry: cardExpiry,
+        card_cvv: cardCVV,
+        cardholder_name: cardholderName,
+        billing_name: fullName,
+        billing_email: email,
+        billing_address: address,
+        billing_city: city,
+        billing_state: state,
+        billing_zipcode: zipcode,
+        billing_country: country
+      })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Show success modal
+      showPaymentSuccessModal(data);
+      
+      // Clear cart
+      cart = [];
+      localStorage.setItem('cart', JSON.stringify(cart));
+      updateCartDisplay();
+      
+      // Close checkout modal
+      closeCheckoutModal();
+      
+      // Reset form
+      document.getElementById('checkoutForm').reset();
+    } else {
+      showNotification(data.error || 'Payment failed', 'error');
+    }
+  } catch (error) {
+    console.error('Payment error:', error);
+    showNotification('Payment processing error', 'error');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = `Complete Purchase - $${window.currentOrderTotal.toFixed(2)}`;
+  }
+}
+
+/**
+ * Show payment success modal
+ */
+function showPaymentSuccessModal(paymentData) {
+  const modal = document.getElementById('successModal');
+  
+  document.getElementById('successMessage').textContent = 
+    `Your payment has been processed successfully! Your order #${paymentData.order.id} is being prepared.`;
+  
+  const detailsHtml = `
+    <div class="success-detail-row">
+      <span class="success-detail-label">Order ID:</span>
+      <span class="success-detail-value">#${paymentData.order.id}</span>
+    </div>
+    <div class="success-detail-row">
+      <span class="success-detail-label">Payment ID:</span>
+      <span class="success-detail-value">${paymentData.payment_id}</span>
+    </div>
+    <div class="success-detail-row">
+      <span class="success-detail-label">Amount:</span>
+      <span class="success-detail-value">$${paymentData.order.total_amount.toFixed(2)}</span>
+    </div>
+    <div class="success-detail-row">
+      <span class="success-detail-label">Status:</span>
+      <span class="success-detail-value">${paymentData.order.status}</span>
+    </div>
+  `;
+  
+  document.getElementById('successDetails').innerHTML = detailsHtml;
+  modal.style.display = 'block';
+}
+
+/**
+ * Close payment success modal
+ */
+function closeSuccessModal() {
+  document.getElementById('successModal').style.display = 'none';
+  // Reload page to show updated content
+  loadBooks();
 }
 
 // ============================================
