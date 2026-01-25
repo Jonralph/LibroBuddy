@@ -35,6 +35,7 @@ LibroBuddy is a comprehensive online library/bookstore management system designe
 - Order history tracking
 - Order status management (pending, processing, shipped, delivered, cancelled)
 - **NEW:** Employee tracking for orders processed by cashiers
+- **NEW:** Credit card checkout (mock) with billing validation and confirmations
 
 ### Review System
 - Customer reviews with 1-5 star ratings
@@ -57,12 +58,12 @@ LibroBuddy is a comprehensive online library/bookstore management system designe
 
 ### Cashier Features
 - View all customer orders
-- Update order status
+- Update or cancel order status (restocks inventory on cancel)
 - View today's sales summary
 - Employee ID tracking for accountability
 
 ### Advanced Features
-- **Payment Gateway (Mock):** Simulated payment processing with confirmation emails
+- **Payment Gateway (Mock):** Simulated credit card checkout with billing capture and confirmation emails
 - **Supplier Ordering:** Automated inventory management with reorder thresholds
 - **Audit Logging:** Track all critical actions (logins, orders, inventory changes)
 - **Data Encryption:** Sensitive data encrypted at rest
@@ -196,7 +197,7 @@ http://localhost:3000
 - **Username:** cashier
 - **Password:** cashier123
 - **Employee ID:** EMP001
-- **Capabilities:** View all orders, update order status, view today's sales
+- **Capabilities:** View all orders, update/cancel order status (with restock), view today's sales
 
 ### Sample Customer Account
 - **Username:** johndoe
