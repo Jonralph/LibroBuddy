@@ -607,8 +607,8 @@ app.get('/api/orders', authenticateToken, (req, res) => {
   `;
   const params = [];
 
-  // Non-admin users can only see their own orders
-  if (req.user.role !== 'admin') {
+  // Only admins and cashiers can see all orders; others see their own
+  if (!['admin', 'cashier'].includes(req.user.role)) {
     sql += ' WHERE orders.user_id = ?';
     params.push(req.user.userId);
   }
@@ -656,8 +656,8 @@ app.get('/api/orders/:id', authenticateToken, (req, res) => {
   let orderSql = 'SELECT * FROM orders WHERE id = ?';
   const orderParams = [orderId];
 
-  // Non-admin users can only see their own orders
-  if (req.user.role !== 'admin') {
+  // Only admins and cashiers can see all orders; others see their own
+  if (!['admin', 'cashier'].includes(req.user.role)) {
     orderSql += ' AND user_id = ?';
     orderParams.push(req.user.userId);
   }

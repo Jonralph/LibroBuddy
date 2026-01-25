@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT UNIQUE NOT NULL,           -- Unique username for login
   email TEXT UNIQUE NOT NULL,              -- User's email address
   password_hash TEXT NOT NULL,             -- Bcrypt hashed password
-  role TEXT DEFAULT 'customer'             -- Role: customer, admin, or manager
-    CHECK(role IN ('customer', 'admin', 'manager')),
+  role TEXT DEFAULT 'customer'             -- Role: customer, admin, manager, or cashier
+    CHECK(role IN ('customer', 'admin', 'manager', 'cashier')),
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
