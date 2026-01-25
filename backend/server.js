@@ -1326,7 +1326,7 @@ app.post('/api/process-payment', authenticateToken, async (req, res) => {
         insertPaymentQuery,
         [
           order_id,
-          req.user.id,
+          req.user.userId,
           payment_id,
           payment_method,
           order.total_amount,
@@ -1416,7 +1416,7 @@ LibroBuddy Team
             `;
             db.run(
               auditQuery,
-              [req.user.id, 'payment_processed', `Payment ${payment_id} for order ${order_id}`, req.ip],
+              [req.user.userId, 'payment_processed', `Payment ${payment_id} for order ${order_id}`, req.ip],
               (err) => {
                 if (err) console.error('Error logging audit:', err);
               }
