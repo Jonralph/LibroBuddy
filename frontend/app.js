@@ -967,6 +967,20 @@ function toggleCart() {
 }
 
 /**
+ * Close cart panel if click is outside
+ */
+document.addEventListener('click', function(event) {
+  const cartPanel = document.getElementById('cartPanel');
+  const cartButton = event.target.closest('[onclick*="toggleCart"]');
+  
+  // If cart is open and click is outside cart panel and not the cart button
+  if (cartPanel && cartPanel.classList.contains('open') && 
+      !cartPanel.contains(event.target) && !cartButton) {
+    cartPanel.classList.remove('open');
+  }
+});
+
+/**
  * Checkout - create order and show payment form
  */
 async function checkout() {
