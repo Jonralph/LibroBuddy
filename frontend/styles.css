@@ -1351,3 +1351,117 @@ body::before {
   width: auto;
   display: block;
 }
+
+/* ============================================ */
+/* AUDIT AND SALES TABLES */
+/* ============================================ */
+
+.audit-table,
+.sales-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  background: linear-gradient(135deg, var(--card-bg), rgba(31,45,77,0.7));
+  border: 1px solid var(--border-accent);
+  box-shadow: var(--shadow);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.audit-table thead,
+.sales-report-table thead {
+  background: linear-gradient(135deg, var(--secondary-color), #6b5339);
+  color: var(--text-dark);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border-accent);
+}
+
+.audit-table th,
+.sales-report-table th {
+  padding: 1.2rem;
+  text-align: left;
+  color: var(--text-dark);
+  font-size: 0.95rem;
+  font-family: 'Cinzel', serif;
+}
+
+.audit-table tbody tr,
+.sales-report-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.audit-table tbody tr:hover,
+.sales-report-table tbody tr:hover {
+  background: linear-gradient(135deg, rgba(139,115,85,0.15), transparent);
+  box-shadow: inset 0 0 10px rgba(212,175,55,0.1);
+}
+
+.audit-table tbody tr:last-child,
+.sales-report-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.audit-table td,
+.sales-report-table td {
+  padding: 1rem 1.2rem;
+  color: var(--text-dark);
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.audit-table td:first-child,
+.sales-report-table td:first-child {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+/* Individual column styling for audit logs */
+.audit-table tbody tr td:nth-child(1) {
+  color: var(--accent-color);
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.audit-table tbody tr td:nth-child(2) {
+  color: #a8d5ff;
+  font-weight: 500;
+}
+
+.audit-table tbody tr td:nth-child(3) {
+  color: var(--text-gold);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.9rem;
+}
+
+.audit-table tbody tr td:nth-child(4) {
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.audit-table tbody tr td:nth-child(5) {
+  color: #a0d8ff;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+}
+
+#auditLogResults h4 {
+  color: var(--text-gold);
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 1px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  font-size: 1.3rem;
+}
+
+#auditLogResults p {
+  color: var(--text-dark);
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}

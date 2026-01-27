@@ -1651,6 +1651,37 @@ async function updateSupplierOrderStatus(orderId) {
 // ============================================
 // AUDIT LOG FUNCTIONS (ADMIN)
 // ============================================
+function formatAuditDetails(details, action) {
+  if (!details) return 'N/A';
+  
+  let parsed = details;
+  if (typeof details === 'string') {
+    try {
+      parsed = JSON.parse(details);
+    } catch (e) {
+      return details;
+    }
+  }
+  
+  // Format Order Actions with clear key-value pairs
+  if (action.startsWith('ORDER_')) {
+    const lines = [];
+    if (parsed.order_id) lines.push(`Order ID: ${parsed.order_id}`);
+    if (parsed.total_amount !== undefined) lines.push(`Total: $${parseFloat(parsed.total_amount).toFixed(2)}`);
+    if (parsed.items !== undefined) lines.push(`Items: ${parsed.items}`);
+    if (parsed.new_status) lines.push(`Status: ${parsed.new_status}`);
+    return lines.length > 0 ? lines.join(' | ') : JSON.stringify(parsed);
+  }
+  
+  // Format other actions
+  const lines = [];
+  for (const [key, value] of Object.entries(parsed)) {
+    const formattedKey = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    lines.push(`${formattedKey}: ${value}`);
+  }
+  return lines.length > 0 ? lines.join(' | ') : JSON.stringify(parsed);
+}
+
 function renderAuditLogs(title, logs, summaryHtml = '') {
   let html = `<h4>${title}</h4>`;
   if (summaryHtml) {
@@ -1660,17 +1691,28 @@ function renderAuditLogs(title, logs, summaryHtml = '') {
     html += '<p>No audit logs found.</p>';
   } else {
     html += `<table class="audit-table">
-      <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th><th>IP</th></tr></thead>
-      <tbody>
-      ${logs.map(log => `
+      <thead>
         <tr>
-          <td>${new Date(log.created_at).toLocaleString()}</td>
-          <td>${log.username || 'N/A'}</td>
-          <td>${log.action}</td>
-          <td>${log.details || ''}</td>
-          <td>${log.ip_address || 'N/A'}</td>
+          <th>Time</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Details</th>
+          <th>IP Address</th>
         </tr>
-      `).join('')}
+      </thead>
+      <tbody>
+      ${logs.map(log => {
+        const formattedDetails = formatAuditDetails(log.details, log.action);
+        return `
+        <tr>
+          <td title="${new Date(log.created_at).toLocaleString()}">${new Date(log.created_at).toLocaleString()}</td>
+          <td title="${log.username || 'N/A'}">${log.username || 'N/A'}</td>
+          <td title="${log.action}">${log.action}</td>
+          <td title="${formattedDetails}">${formattedDetails}</td>
+          <td title="${log.ip_address || 'N/A'}">${log.ip_address || 'N/A'}</td>
+        </tr>
+      `;
+      }).join('')}
       </tbody>
     </table>`;
   }
