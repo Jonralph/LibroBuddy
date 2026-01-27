@@ -423,6 +423,15 @@ async function loadBooks() {
     const books = await response.json();
 
     displayBooks(books);
+
+    // Show toast notification for search results
+    if (searchInput) {
+      if (books.length === 0) {
+        showNotification('No results found', 'info');
+      } else {
+        showNotification(`Found ${books.length} ${books.length === 1 ? 'result' : 'results'}`, 'success');
+      }
+    }
   } catch (error) {
     console.error('Error loading books:', error);
     showNotification('Failed to load books', 'error');
