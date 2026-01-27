@@ -884,6 +884,18 @@ function removeFromCart(bookId) {
   showNotification('Item removed from cart', 'info');
 }
 
+// Clear all items from cart and persist
+function clearCart() {
+  if (cart.length === 0) {
+    showNotification('Your cart is already empty', 'info');
+    return;
+  }
+  cart = [];
+  localStorage.removeItem('cart');
+  updateCartDisplay();
+  showNotification('Cart cleared', 'info');
+}
+
 /**
  * Update quantity of item in cart
  * @param {number} bookId - Book ID
